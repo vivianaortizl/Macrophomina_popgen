@@ -1,0 +1,177 @@
+###
+#title: "02. Phylogenetic analysis using RAxML-NG"
+#author: "Viviana Ortiz"
+#date: "10/17/2021"
+
+1. Converted vcf with final high-quality snps to Phylip (interleaved) format in TASSEL5: 
+open as vcf (sort positions checked) and then save as Phylip (interleaved)
+
+vcf file: 051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_MAF002.vcf
+phylip file: 051920_maf002.phy
+
+2. Using RAxML-NG v. 1.0.1 
+
+#In HPCC MSU submit script: 101721_raxmlng_vcf77k.sh
+
+This script runs a "all in one" analysis: This will do (20 ML inferences on the original MSA, inferring
+bootstrap replicate trees, and drawing support values using both FBP and TBE on the best-scoring tree) with just a single command
+ 
+sbatch 101721_raxmlng_vcf77k.sh
+
+3. Tree likelihood evaluation after running all in one analysis
+
+Run in the console after module load
+ml -* intel/2019b RAxML-NG/1.0.1
+
+3.1.Compute and print the likelihood of the tree(s) without optimizing anything
+and without creating any output files
+
+raxml-ng --loglh --msa 051920_maf002.phy --model GTR+G+ASC_LEWIS --tree T77K.raxml.bestTree --threads 2
+
+3.2. Re-optimizing all model parameters:
+raxml-ng --evaluate --msa 051920_maf002.phy --model GTR+G+ASC_LEWIS --tree T77K.raxml.bestTree --threads 2 --nofiles
+
+
+3.3.Comparing different models, model I used Model: GTR+G+ASC_LEWIS (same as: GTR+FO+G4m+ASC_LEWIS), which uses a ML estimate of the base frequencies
+instead of empirical base frequencies 
+
+ 
+Model used in initial all in one analysis tree (just to print the likelihood and compare to other models):
+raxml-ng --evaluate --msa 051920_maf002.phy --model GTR+G+ASC_LEWIS --tree T77K.raxml.bestTree --threads 2 --prefix ET77k
+
+simple GTR model (without rate heterogeneity):
+raxml-ng --evaluate --msa 051920_maf002.phy --model GTR+ASC_LEWIS --tree T77K.raxml.bestTree --threads 2 --prefix E1
+
+GTR with the GAMMA model of rate heterogeneity, but using empirical base frequencies:
+raxml-ng --evaluate --msa 051920_maf002.phy --model GTR+G+FC+ASC_LEWIS --tree T77K.raxml.bestTree --threads 2 --prefix E2
+
+Finally, using 4 free rates instead of GAMMA-distributed rates:
+raxml-ng --evaluate --msa 051920_maf002.phy --model GTR+R4+FO+ASC_LEWIS --tree T77K.raxml.bestTree --threads 2 --prefix E3
+
+
+Check the results 
+grep logLikelihood E*.raxml.log
+
+Using information theoretical criteria such as AIC (Akaike Information Criterion), 
+AICc (corrected AIC; AIC with a correction for small sample sizes) or BIC (Bayesian Information Criterion) 
+to penalize parameter-rich models and thereby avoid overfitting the data.
+
+grep "AIC score" E*.raxml.log
+
+Results:
+bash-4.2$ grep logLikelihood E*.raxml.log
+E1.raxml.log:[00:00:03] Tree #1, final logLikelihood: -654281.917663
+E2.raxml.log:[00:00:01] Tree #1, final logLikelihood: -653602.858291
+E3.raxml.log:[00:02:24] Tree #1, final logLikelihood: -652828.416224
+ET77k.raxml.log:[00:00:05] Tree #1, final logLikelihood: -652985.083807
+bash-4.2$ grep "AIC score" E*.raxml.log
+E1.raxml.log:AIC score: 1308953.835326 / AICc score: 1308954.824598 / BIC score: 1310759.063719
+E2.raxml.log:AIC score: 1307597.716583 / AICc score: 1307598.716013 / BIC score: 1309412.202557
+E3.raxml.log:AIC score: 1306058.832447 / AICc score: 1306059.883455 / BIC score: 1307919.606329
+ET77k.raxml.log:AIC score: 1306362.167615 / AICc score: 1306363.167045 / BIC score: 1308176.653589
+
+
+For all criteria, model with the lowest score should be preferred.
+The GTR+R4+FO+ASC_LEWIS model (E3, using 4 free rates instead of GAMMA-distributed rates) scores best according to all three information theoretical criteria evaluated
+it also yields a slightly better likelihood than GTR+G+ASC_LEWIS 
+All likelihood and criteria values are very close and the two best trees (E3 and ET77k) have almost identical AIC and likelihood values 
+
+
+##Inferring bootstrap trees for GTR+R4+FO+ASC_LEWIS model
+RAxML-NG can perform the standard non-parametric bootstrap by re-sampling alignment columns and re-inferring a tree for each bootstrap (BS) replicate MSA:
+
+This submitted in script: sbatch 101721_raxmlng_vcf77k_boot.sh
+raxml-ng --bootstrap --msa 051920_maf002.phy --model GTR+R4+FO+ASC_LEWIS --prefix E3 --seed 2 -- threads 6
+
+###Computing branch support on the best tree: E3
+#Uses standard bootstrap support metric (Felsenstein’s bootstrap, FBP) which relies on binary presence/absence of bipartitions from replicate trees in the best-known ML tree
+
+raxml-ng --support --tree E3.raxml.bestTree --bs-trees E3.raxml.bootstraps -- prefix E3 --threads 2
+
+
+##Also ran the analysis all in one using best model
+script: 101721_raxmlng_vcf77k_bestmodel.sh
+dir: /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/raxmlng/77k_bestmodel_GTRR4
+
+The bootstrap on the E3 tree and the analysis from the beginning using best model failed because "BRLEN out-of-bounds".
+
+Decided to use tree with GTR+G+ASC_LEWIS since it closely followed in AIC and likelihood.
+Moreover, compared both best trees and they converged to the same ML tree topology:
+
+We can check this by using the --rfdist command to compute the topological Robinson-Foulds (RF) distance between both trees we have inferred:
+
+cat ET77k.raxml.bestTree E3.raxml.bestTree > ET77E3mltrees 
+raxml-ng --rfdist --tree ET77E3mltrees --prefix RFET77E3
+
+Results:
+RAxML-NG v. 1.0.1 released on 19.09.2020 by The Exelixis Lab.
+Developed by: Alexey M. Kozlov and Alexandros Stamatakis.
+Contributors: Diego Darriba, Tomas Flouri, Benoit Morel, Sarah Lutteropp, Ben Bettisworth.
+Latest version: https://github.com/amkozlov/raxml-ng
+Questions/problems/suggestions? Please visit: https://groups.google.com/forum/#!forum/raxml
+
+System: Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz, 40 cores, 377 GB RAM
+
+RAxML-NG was called at 19-Oct-2021 15:57:34 as follows:
+
+raxml-ng --rfdist --tree ET77E3mltrees --prefix RFET77E3
+
+Analysis options:
+  run mode: RF distance computation
+  start tree(s): user
+  random seed: 1634673454
+  SIMD kernels: AVX2
+  parallelization: coarse-grained (auto), PTHREADS (auto)
+
+Reading input trees from file: ET77E3mltrees
+Loaded 2 trees with 95 taxa.
+
+Average absolute RF distance in this tree set: 0.000000
+Average relative RF distance in this tree set: 0.000000
+Number of unique topologies in this tree set: 1
+
+Pairwise RF distances saved to: /mnt/ufs18/home-113/ortizviv/08312017_mp_whgenome/workdata_08312017/raxmlng/RFET77E3.raxml.rfDistances
+
+Execution log saved to: /mnt/ufs18/home-113/ortizviv/08312017_mp_whgenome/workdata_08312017/raxmlng/RFET77E3.raxml.log
+
+Analysis started: 19-Oct-2021 15:57:34 / finished: 19-Oct-2021 15:57:34
+
+Elapsed time: 0.010 seconds
+
+
+cat T77K.raxml.bestTree E3.raxml.bestTree > T77E3mltrees 
+raxml-ng --rfdist --tree T77E3mltrees --prefix RFT77E3
+
+RAxML-NG v. 1.0.1 released on 19.09.2020 by The Exelixis Lab.
+Developed by: Alexey M. Kozlov and Alexandros Stamatakis.
+Contributors: Diego Darriba, Tomas Flouri, Benoit Morel, Sarah Lutteropp, Ben Bettisworth.
+Latest version: https://github.com/amkozlov/raxml-ng
+Questions/problems/suggestions? Please visit: https://groups.google.com/forum/#!forum/raxml
+
+System: Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz, 40 cores, 377 GB RAM
+
+RAxML-NG was called at 19-Oct-2021 15:58:43 as follows:
+
+raxml-ng --rfdist --tree T77E3mltrees --prefix RFT77E3
+
+Analysis options:
+  run mode: RF distance computation
+  start tree(s): user
+  random seed: 1634673523
+  SIMD kernels: AVX2
+  parallelization: coarse-grained (auto), PTHREADS (auto)
+
+Reading input trees from file: T77E3mltrees
+Loaded 2 trees with 95 taxa.
+
+Average absolute RF distance in this tree set: 0.000000
+Average relative RF distance in this tree set: 0.000000
+Number of unique topologies in this tree set: 1
+
+Pairwise RF distances saved to: /mnt/ufs18/home-113/ortizviv/08312017_mp_whgenome/workdata_08312017/raxmlng/RFT77E3.raxml.rfDistances
+
+Execution log saved to: /mnt/ufs18/home-113/ortizviv/08312017_mp_whgenome/workdata_08312017/raxmlng/RFT77E3.raxml.log
+
+Analysis started: 19-Oct-2021 15:58:43 / finished: 19-Oct-2021 15:58:43
+
+Elapsed time: 0.008 seconds

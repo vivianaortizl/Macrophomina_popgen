@@ -1,0 +1,193 @@
+---
+title: "01. Mp Variant filtering"
+author: "Viviana Ortiz"
+date: "10/18/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r eval = TRUE, echo = FALSE, results = 'hide'}
+
+rm(list=ls(all=TRUE)) #Removes all variables in the global environment
+
+Sys.time() # prints out the time and date you ran the code
+
+options(scipen = 999) # stops anything from being in scientific notation
+```
+
+#Install packges and load libraries
+```{r}
+ipak <- function( pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[,"Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+packages <- c("poppr", "vcfR", "ape", "pegas", "ggplot2", "adegenet", "seqinr",
+"magrittr", "plink", "reshape2", "agricolae", "plotly", "reshape2", "cowplot")
+ipak(packages)
+```
+
+
+#Info vcf file
+Variant calling format (vcf) file obtained using as reference genome:
+Mp39R genome, official name Macrophomina phaseolina MPI-SDFR-AT-0080 v1.0
+No information about host
+
+## 1. Reading the vcf
+vcf excluding isolate M14-31 isolated form chia (Arizona)
+
+```{r}
+# Read vcf file: 95 isolates 
+vcf_file <- "./030220_vcf_files/051620_SNP_filtered_vcfs/Mp39R_95excM1431_dedup_haplo.SNP.vcf.gz"
+vcf95 <- read.vcfR(vcf_file,
+                 convertNA = TRUE, verbose = TRUE)
+```
+
+
+
+## 2. Quality filtering the vcf
+2.1. Filtering by read depth (DP)
+```{r}
+#Extracting DP data from the gt section
+#Visualize gt section
+vcf95@gt[1:4, 1:6]
+
+#Extract DP 
+dp <- extract.gt(vcf95,  element = "DP", as.numeric = TRUE)
+class(dp)
+dim(dp)
+head(dp)
+```
+
+```{r}
+#Filtering by missing data in DP 
+
+# Filtering by quantiles: Removing the outliers in the lower 5% and higher 95% of the data
+sums <- apply(dp, 2, function (x) quantile(x, probs=c(0.05, 0.95), na.rm = T))
+dp.all.2 <- sweep(dp, MARGIN=2, FUN="-", sums[1,])
+dp[dp.all.2 < 0] <- NA
+
+dp.all.2 <- sweep(dp, MARGIN=2, FUN="-", sums[2,])
+dp[dp.all.2 > 0] <- NA
+
+# Filtering by minimum depth (DP)
+dp[dp < 4] <- NA
+
+# Removing the filtered variants by replacing the genotype of the variant with an NA
+# Replacing the genotype of the variant with an NA, to remove the filtered variants in later step when removing NAs in gt
+vcf95@gt[,-1][is.na(dp)] <- NA
+vcf95
+
+# Saving in the VCF file with NAs in DP, to use later to remove missing data
+write.vcf(vcf95,file = "051920_SNP_mp39_95_DPasNA_tosubset.vcf.gz", mask = F)
+```
+
+
+2.2. Filtering by missing data (GT)
+```{r}
+# Filtering by missing data GT (retaining positions where the variant is present in all the samples)
+## Extracting the genotypes
+gt <- extract.gt(vcf95, element = "GT")
+head(gt)
+
+myMiss_variant_gt <- apply(gt, MARGIN = 1, function(x){ sum(is.na(x)) })
+head(myMiss_variant_gt)
+class(myMiss_variant_gt)
+
+hist(myMiss_variant_gt, col = "#8DD3C7", xlab = "Number of samples with missing variants", main = "")
+
+myMiss_variant_prop_gt <- myMiss_variant_gt/ncol(vcf95@gt[,-1])
+hist(myMiss_variant_prop_gt, col = "#8DD3C7", xlab = "Proportion of samples with missing variants", main = "")
+
+
+#Omitting variants 
+#keep variants with data for all samples, so where no (0) missing samples for the variant
+#Here the file has 0 missing data in both DP and GT (because in earlier step we code DP to delete as NA in GT)
+vcf <- vcf95[myMiss_variant_gt == 0, ]
+vcf
+
+
+# Saving in the filtered object in a new VCF file
+write.vcf(vcf,file = "051920_mp39_95_DP595quant_DP4_0miss.vcf.gz", mask = F)
+
+#Checking DP after filtering 
+dp2 <- extract.gt(vcf, element = "DP", as.numeric=TRUE)
+hist(dp2)
+#boxplot(dp2, las = 2)
+heatmap.bp(dp2[1:1000,], rlabels = FALSE)
+
+#Use in case that want to filter by percentage, for example if some analysis allow some missing data and want to keep variants with some percentage of missing data
+
+## Creating a mask
+#data.mask <- rep(x = T, times = nrow(vcf95@gt))
+## Masking the variant positions with more than 0.1% missing data (to remove)
+#data.mask[apply(gt, 1, function (x) sum(is.na(x))/ncol(gt)) >= 0.001] <- F
+## Saving the retained variant positions
+#vcf95 <- vcf95[data.mask %in% T,]
+```
+
+
+2.3. Filtering by minimum threshold mapping quality (MQ)
+MQ value was selected based on visualization of MQ acrosss contigs using chromo objects implementrf in vcfR
+```{r}
+# Filtering by maximum mapping quality score (MQ)
+## Extracting MQ values
+MQ.values <- extract.info(vcf, element = "MQ", as.numeric = T)
+head(MQ.values) #Most values are 60 or around 60
+hist(MQ.values)
+hist(MQ.values, breaks = 100000, xlim= c(59.8, 60.1),col = "#8DD3C7", xlab = "Mapping Quality (MQ)", main = "")
+length(MQ.values)
+min(MQ.values)
+max(MQ.values)
+
+## Creating a mask
+data.mask <- rep(x = T, times = nrow(vcf@gt))
+data.mask[MQ.values < 59.9] <- F #based on MQ values
+length(data.mask)
+## Saving the retained variant positions
+vcf <- vcf[data.mask %in% T,]
+vcf
+# Saving in the filtered object in a new VCF file
+#write.vcf(vcf,file = "032520_mp39_95_DP0missquant1090_DP4_GT0_MQ60.vcf.gz", mask = F)
+write.vcf(vcf,file = "./051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60.vcf.gz", mask = F)
+
+```
+
+
+
+# 3. Filtering by Minor Allele Frequency (MAF) the vcf with all 95 samples 94K snps
+To keep loci with minor allele at least in 2 samples filter by removing sites with maf < 0.02
+
+```{r, echo=TRUE}
+vcf95filt <-"./051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60.vcf.gz" 
+            
+vcf <- read.vcfR(vcf95filt,
+                 convertNA = TRUE, verbose = TRUE)
+
+vcf #95 samples, 86 CHROMs, 96,453 variants
+#Calculate minor allele frequency for each loci
+
+maf_vcf <- maf(vcf, element = 2) 
+maf_vcf <- as.data.frame(maf_vcf)
+head(maf_vcf)
+sum(maf_vcf$Frequency<0.02) #18988
+
+
+maf_vcf <- maf_vcf[maf_vcf[,4] > 0.02, ]
+vcf@fix[,3] <- paste(vcf@fix[,1], vcf@fix[,2], sep = "_")
+fix <- vcf@fix[vcf@fix[,3] %in% rownames(maf_vcf), ]
+true_ind <- which(vcf@fix[,3] %in% rownames(maf_vcf))
+vcf@fix <- vcf@fix[true_ind, ] #keep only rows with maf >0.02
+vcf@gt <- vcf@gt[true_ind, ]
+#
+vcf #95 samples, 86 CHROMs, 77,465 variants
+# Saving in the final filtered VCF file of high-quality SNPs
+write.vcf(vcf, file = "./051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_MAF002.vcf.gz")
+```
+
+
+
+
