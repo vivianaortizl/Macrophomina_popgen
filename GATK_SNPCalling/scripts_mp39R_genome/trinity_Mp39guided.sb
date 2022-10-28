@@ -1,0 +1,26 @@
+#!/bin/bash --login
+#SBATCH --time=08:00:00 	# limit of wall clock times
+#SBATCH --ntasks=10			# how many tasks (nodes)
+#SBATCH --cpus-per-task=2	# number of CPUs (or cores) per task
+#SBATCH --mem=12G			#memory required per node
+#SBATCH -o /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/Mp39R/out.trinity.Mp39.bwa.nodedup/standard_out.$SLURM_ARRAY_TASK_ID.txt
+#SBATCH -e /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/Mp39R/out.trinity.Mp39.bwa.nodedup/standard_error.$SLURM_ARRAY_TASK_ID.txt
+#SBATCH --threads-per-core=1-96
+#SBATCH --job-name trinity_mp39guided
+
+cd ${SLURM_SUBMIT_DIR}
+
+module load Trinity/2.8.4
+
+
+line=$(sed -n -e "$SLURM_ARRAY_TASK_ID p" mp_readnames.txt)
+line2=$(sed -n -e "$((SLURM_ARRAY_TASK_ID + 96)) p" mp_readnames.txt)
+echo " line: $line ,    line2: $line2"
+
+Trinity \
+--genome_guided_bam /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/Mp39R/mapping_bwa/${line}_masked.sorted.bam \ #same names as MS6 but it is Mp39 bc in Mp39 folder
+--genome_guided_max_intron 200 \
+--CPU 10 \
+--max_memory 12G \
+--output ${line}_trinity_Mp39_bwa_nodedup \
+--full_cleanup

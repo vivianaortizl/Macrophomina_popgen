@@ -1,0 +1,31 @@
+For Trinity
+
+outside any node
+module spider trinity/2.6.6
+
+In dev-intel14 and dev-intel16
+Versions:
+        Trinity/2.6.6
+        Trinity/2.8.4
+        
+module purge
+
+New versions should be available in the default compiler:
+
+[ortizviv@dev-intel16 ~]$ module list
+
+Currently Loaded Modules:
+  1) GCCcore/6.4.0
+  
+For older version need to load any of the compilers listed in the message:
+
+[ortizviv@dev-intel16 ~]$ module spider Trinity/2.6.6
+
+-------------------------------------------------------------------------------------------------------
+  Trinity: Trinity/2.6.6
+-------------------------------------------------------------------------------------------------------
+
+    You will need to load all module(s) on any one of the lines below before the "Trinity/2.6.6" module is available to load.
+
+      icc/2017.4.196-GCC-6.4.0-2.28  impi/2017.3.196
+      ifort/2017.4.196-GCC-6.4.0-2.28  impi/2017.3.196

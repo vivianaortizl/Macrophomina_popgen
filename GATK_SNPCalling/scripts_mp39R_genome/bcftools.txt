@@ -1,0 +1,66 @@
+####
+01-24-21
+Filter vcf by LD with bcftools 
+
+#Install bcftools
+
+cd bcftools-1.11    # and similarly for bcftools and htslib
+./configure --prefix=/Users/vivianaortiz/  #/where/to/install
+export PATH=/Users/vivianaortiz/bin:$PATH  #where/to/install/bin:$PATH
+make
+make install
+
+
+#Run bcftools 
+#To use plugins, including prune:
+
+in:/Users/vivianaortiz/bin
+
+export BCFTOOLS_PLUGINS=/Users/vivianaortiz/bcftools-1.11/plugins		#/path/to/bcftools/plugins
+
+bcftools plugin -lv
+bcftools +prune -h #list plugin’s options
+
+#Discard records with r2 bigger than 0.9 in a window of 1000 site
+bcftools +prune -m 0.9 -w 1000 /Users/vivianaortiz/Documents/Macrophomina_project/08312017_mp_whgenome/R_mp_genome/051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_poly_biallelic.vcf.gz -Ov -o /Users/vivianaortiz/Documents/Macrophomina_project/08312017_mp_whgenome/R_mp_genome/051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_poly_biallelic.ld09.vcf.gz
+
+#####
+options 
+
+About: Prune sites by missingness or linkage disequilibrium.
+
+Usage: bcftools +prune [Options]
+Plugin options:
+       --AF-tag STR                use this tag with -n to determine allele frequency
+   -a, --annotate r2,LD            add position of an upstream record with the biggest r2/LD value
+   -e, --exclude EXPR              exclude sites for which the expression is true
+   -f, --set-filter STR            apply soft filter STR instead of discarding the site (only with -m)
+   -i, --include EXPR              include only sites for which the expression is true
+   -k, --keep-sites                leave sites filtered by -i/-e unchanged instead of discarding them
+   -m, --max [r2|LD=]FLOAT         remove sites with r2 or Lewontin's D bigger than FLOAT within the -w window
+   -n, --nsites-per-win N          keep at most N sites in the -w window, removing sites with small AF first
+   -o, --output FILE               write output to the FILE [standard output]
+   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]
+       --randomize-missing         replace missing data with randomly assigned genotype based on site's allele frequency
+   -r, --regions REGION            restrict to comma-separated list of regions
+   -R, --regions-file FILE         restrict to regions listed in a file
+   -t, --targets REGION            similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE         similar to -R but streams rather than index-jumps
+   -w, --window INT[bp|kb|Mb]      the window size of INT sites or INT bp/kb/Mb for the -n/-l options [100kb]
+Examples:
+   # Discard records with r2 bigger than 0.6 in a window of 1000 sites
+   bcftools +prune -m 0.6 -w 1000 input.bcf -Ob -o output.bcf
+
+   # Set FILTER (but do not discard) records with r2 bigger than 0.4 in the default window of 100kb
+   bcftools +prune -m 0.4 -f MAX_R2 input.bcf -Ob -o output.bcf
+
+   # Filter nothing, only annotate each site with r2 and LD to the previous site
+   bcftools +prune -w 1 -a r2,LD -f . input.bcf -Ob -o output.bcf
+
+   # Annotate INFO field of all records with maximum r2 in a window of 1000 sites
+   bcftools +prune -m 0.6 -w 1000 -f MAX_R2 input.bcf -Ob -o output.bcf
+
+   # Discard records with r2 bigger than 0.6, first removing records with more than 2% of genotypes missing
+   bcftools +prune -m 0.6 -e'F_MISSING>=0.02' input.bcf -Ob -o output.bcf
+
+###

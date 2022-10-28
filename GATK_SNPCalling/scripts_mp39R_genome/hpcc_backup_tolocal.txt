@@ -1,0 +1,203 @@
+#Back up HPCC to local computer
+#06/04/2019
+
+#See file transfer instructions in new hpcc website 
+https://wiki.hpcc.msu.edu/display/ITH/Mapping+HPC+drives+with+Samba
+
+
+#First need to create a new compressed file containing all my files in hpcc keeping the original files
+#Usually tar and gzip are used
+
+##Tar to create and archive (file) with all files in a directory, but this do not compress files
+#tar command to archive various files into a single archive file
+https://www.rootusers.com/23-tar-command-examples-for-linux/
+
+#archive an entire directory recursively to archive all contents
+tar -czf etc.tar.gz /etc/
+#List the content
+tar -tf etc.tar.gz | head
+
+
+#gzip compress the files 
+
+#Most often you find Tar and Gzip used in concert to create "gzipped archives" 
+#with .tar.gz extensions (or its abbreviated form, .tgz)
+
+#The -c option is used to create a new archive file,
+#the -f option is used to specify the archive file to use (in this case, create)
+#The original files still exist after being added to the archive, they are not removed by default
+
+
+#Creates a gzipped archive, archive.tar.gz
+tar -czvf archive.tar.gz file1 file2 dir/
+tar -cvfz tarfilename /path/to/files
+
+
+#Extracts all files from the gzipped archive
+tar -xzvf archive.tar.gz
+
+#Lists the contents of the gzipped archive without extracting them
+tar -tzvf archive.tar.gz
+
+########################################################
+#Commands used to archive and compress in same step
+
+#Test using a folder in hpcc
+tar -cvfz localblastcyp.tar.gz ./localblastcyp/
+
+Did it directly in hppc home
+Error:
+tar: localblastcyp.tar.gz: Cannot stat: No such file or directory
+
+Solution:
+
+Remove - from vcfz options. tar does not need hyphen for options.
+
+With a hyphen, the argument for the -f option is z.
+So the command is in effect trying to archive dvr_rdk_v1.tar.gz and dvr_rdk into an archive called z. 
+Without the hyphen, the semantics of the options changes, so that the next argument on the command line, 
+i.e. your archive's filename, becomes the argument to the f flag.
+So, without the hyphen is equivalent to tar -v -c -f dvr_rdk_v1.tar.gz -z
+Or just keep the f as the last option i.e. tar -czvf
+
+#####Correct command that worked
+
+tar cvfz localblastcyp.tar.gz ./localblastcyp/
+
+start: 3:32 end: 
+
+
+tar cvfz workdata_ /path/to/files
+
+#Mapping HPC drive
+
+show-samba-paths
+
+  HOME      |        Samba Path
+===================================================================
+  ortizviv  |  \\ufs.hpcc.msu.edu\home-113\ortizviv      (Windows)
+            |  smb://ufs.hpcc.msu.edu/home-113/ortizviv      (Mac)
+
+
+  RESEARCH    |        Samba Path
+=======================================================================
+  plb847_lab  |  \\ufs.hpcc.msu.edu\rs-023\plb847_lab        (Windows)
+              |  smb://ufs.hpcc.msu.edu/rs-023/plb847_lab        (Mac)
+              
+              
+02/11/2020
+Figure how much storage in the folders online:
+du -sh 
+[ortizviv@dev-intel14 workdata_08312017]$ du -sh
+2.3T
+
+
+Using globus to transfer data to local disk and erase data from hpcc
+Set up globus as indicated in hpcc icer docs 
+
+Find out which files to delete that I dont need because hard disk is 2 TB
+or just compress a whole folder and copy that one to local hard disk
+
+To compress directory named /home/vivek/bin/ in to a /tmp/bin-backup.tar.gz type the tar command on Linux:
+
+tar -zcvf /tmp/bin-backup.tar.gz /home/vivek/bin/
+
+First copy to scratch
+Make a copy of just the contigs file to a folder in scratch hpcc:
+
+go to scratch:
+cd /mnt/scratch/ortizviv/
+
+copy directories:
+cp -r /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/out.* ./out_all_log
+
+
+Test to compress folder in scratch since I dont have space in HOME:
+tar -zcvf /mnt/scratch/ortizviv/out_all_log.tar.gz ./out_all_log
+
+then, move the compressed file from scratch to local hard disk using rsync:
+In local hard disk : /Volumes/mapping_HPCC_VOL/02122020_hpcc_backup/out_log_files
+
+rsync -ave ssh ortizviv@rsync.hpcc.msu.edu:/mnt/scratch/ortizviv/out_all_log.tar.gz .
+
+#now delete directories from home
+rm -r out.*
+
+
+#copy the big folder containing all data to scratch:
+/mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017
+It took longer than I though and the copy was incomplete
+checking which folders are different (incomplete)
+
+diff -arq folder1 folder2
+diff -arq /mnt/scratch/ortizviv/workdata_08312017_scratch/workdata_08312017 /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017
+
+cp -r /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017 ./workdata_08312017_scratch
+
+Delete the folder that copied incompletely, will submit the cp command in a script so it is not interrupted 
+
+script: /mnt/home/ortizviv/08312017_mp_whgenome/backup_copy_to_scratch.sh
+copy script to scratch
+cp /mnt/home/ortizviv/08312017_mp_whgenome/backup_copy_to_scratch.sh ./workdata_08312017_scratch
+
+ 
+
+#then compress bam files in HOME
+tar -zcvf /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/MS6_dedup_bam.tar.gz /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/*.bam
+#it didn't work because quota was excedeed
+
+so, try removing files after compressing
+tar -zcvf /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/MS6_dedup_bam.tar.gz /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/*.bam --remove-files
+
+
+#delete bam files from HOME
+
+
+#copy compressed bam files to HOME
+
+
+#In globus copied 
+
+ whole dir /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017 to local hard disk 
+It was taking too long, so I canceled
+
+#Copy just clean reads to hard disk mapping using rsync to my computer in: /Users/vivianaortiz/Documents/Macrophomina_project/08312017_mp_whgenome/clean_reads
+
+rsync -ave ssh ortizviv@rsync.hpcc.msu.edu:/mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/NGSEP_mpWGS/clean_reads/*.gz .
+
+Error
+zsh: no matches found, need to use quotes for the new thing zsh
+
+rsync -ave ssh ortizviv@rsync.hpcc.msu.edu:"/mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/NGSEP_mpWGS/clean_reads/*.gz" .
+
+Then copied to mapping hard disk
+
+
+#Delete all files in HOME except for vcf files, scripts and raw reads 
+
+
+Move all trinity, sh and vcf files to a folder and delete all other files 
+In /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/scripts_MS6:
+mv /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/*.sh .
+
+In /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/vcfs_MS6:
+mv /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/*.vcf .
+
+In /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/Trinity_denovo:
+mv /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/*trinity_denovo.Trinity.* .
+
+In /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/Trinity_mp39:
+mv /mnt/ufs18/home-113/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/mapping/bam_MS6_masked/*trinity_Mp39* .
+
+In /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/Trinity_MS6:
+mv /mnt/ufs18/home-113/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/mapping/bam_MS6_masked/*trinity_MS6* .
+
+
+Compress folder
+tar -zcvf /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads_backup.tar.gz /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads
+
+Delete folder
+In folder clean_reads in hpcc
+rm -r clean_reads 
+
+
