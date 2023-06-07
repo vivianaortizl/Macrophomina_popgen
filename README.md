@@ -24,9 +24,9 @@ Ortiz, V., Chang, H.X., Sang, H., Jacobs, J., Malvick, D.K., Baird, R., Mathew, 
  
 #### Scripts:
 
-- Variant calling scripts: GATK_SNPCalling folder
+- Variant calling scripts with GATK: GATK_SNPCalling folder
 
-- R scripts for variant filtering, population genomics, redundancy analysis (RDA) and linkage disqeuilibrium estimation (LD): .R and .Rmd files
+- R scripts for variant filtering, population genomics, redundancy analysis (RDA) and linkage disqeuilibrium (LD) estimation: .R and .Rmd files
 
 #### Data:
 
