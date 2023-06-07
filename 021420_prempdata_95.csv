@@ -1,0 +1,96 @@
+vcf_order,isolate,isolate_vcf,label,location,lon,lat,Region,region_noaa,Location,state,state_country,host,town_resolution,town,field,clade,subclade,Genetic_Cluster,comments,bio18,bio15,bio17,bio10,bio4
+1,CR_Red_1 ,CR_Red_1_R1,CR_Red_1_R,"Lamberton, MN",-95.273,44.232,North,Midwest,Midwest US,MN,MN,Soybean,yes,"Lamberton, MN",Unknown,US,US2,US2,,266,51,50,211,11797
+2,CR_Red_2B ,CR_Red_2B_R1,CR_Red_2B_,"Lamberton, MN",-95.273,44.232,North,Midwest,Midwest US,MN,MN,Soybean,yes,"Lamberton, MN",Unknown,US,US2,US2,,266,51,50,211,11797
+3,CR_Red_3 ,CR_Red_3_R1,CR_Red_3_R,"Lamberton, MN",-95.273,44.232,North,Midwest,Midwest US,MN,MN,Soybean,yes,"Lamberton, MN",Unknown,US,US2,US2,,266,51,50,211,11797
+4,Dm13 ,Dm13_R1,Dm13_R1,"Markesan, WI",-88.99,43.707,North,Midwest,Midwest US,WI,WI,Soybean,yes,"Markesan, WI",Unknown,US,US1,US1A,,279,38,95,204,10716
+5,Et12 ,Et12_R1,Et12_R1,"E. Troy, WI",-88.405,42.785,North,Midwest,Midwest US,WI,WI,Soybean,yes,"E. Troy, WI",Unknown,US,US1,US1A,,300,34,113,209,10401
+6,Et14 ,Et14_R1,Et14_R1,"E. Troy, WI",-88.405,42.785,North,Midwest,Midwest US,WI,WI,Soybean,yes,"E. Troy, WI",Unknown,US,US1,US1A,,300,34,113,209,10401
+7,Et17 ,Et17_R1,Et17_R1,"E. Troy, WI",-88.405,42.785,North,Midwest,Midwest US,WI,WI,Soybean,yes,"E. Troy, WI",Unknown,US,US2,US2,,300,34,113,209,10401
+8,Et18 ,Et18_R1,Et18_R1,"E. Troy, WI",-88.405,42.785,North,Midwest,Midwest US,WI,WI,Soybean,yes,"E. Troy, WI",Unknown,US,US1,US1A,,300,34,113,209,10401
+9,Et8 ,Et8_R1,Et8_R1,"E. Troy, WI",-88.405,42.785,North,Midwest,Midwest US,WI,WI,Soybean,yes,"E. Troy, WI",Unknown,US,US1,US1A,,300,34,113,209,10401
+10,IN12_4 ,IN12_4_R1,IN12_4_R1,"Benton, IN",-85.761,41.509,North,Central,Central US,IN,IN,Soybean,yes,"Benton, IN",Unknown,US,US1,US1A,,290,23,156,211,9647
+11,IN12_8_3 ,IN12_8_3_R1,IN12_8_3_R,"Lagrange, IN",-85.417,41.642,North,Central,Central US,IN,IN,Soybean,yes,"Lagrange, IN",Unknown,US,US1,US1A,,285,23,157,208,9682
+12,IN12_9_4 ,IN12_9_4_R1,IN12_9_4_R,"Vermillion, IN",-87.48,39.851,North,Central,Central US,IN,IN,Soybean,yes,"Vermillion, IN",Unknown,US,US1,NA,,315,22,190,227,9546
+13,IN12_9_6 ,IN12_9_6_R1,IN12_9_6_R,"Vermillion, IN",-87.48,39.851,North,Central,Central US,IN,IN,Soybean,yes,"Vermillion, IN",Unknown,US,US1,US1A,,315,22,190,227,9546
+14,IN12_PO_3 ,IN12_PO_3_R1,IN12_PO_3_,"Posey, IN",-87.894,38.002,North,Central,Central US,IN,IN,Soybean,yes,"Posey, IN",Unknown,US,US1,US1A,,278,18,226,244,8954
+15,M11_12 ,M11_12_R1,M11_12_R1,"Santa Barbara, California",-120.249,34.67,West,West,Strawberry ,CA,CA,Strawberry,yes,"Santa Barbara, California",Unknown,COLPR,COLPR2,COLPR2,,9,94,2,187,3240
+16,M13_26 ,M13_26_R1,M13_26_R1,"Monterey, California",-121.287,35.816,West,West,Strawberry ,CA,CA,Strawberry,yes,"Monterey, California",Unknown,COLPR,COLPR2,COLPR2,Strawberry_organic,8,88,3,170,3197
+18,M16_1 ,M16_1_R1,M16_1_R1,"1845 Chip Rd, Kawkawlin, MI 48631",-83.963,43.647,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"1845 Chip Rd, Kawkawlin, MI 48631",1,US,US1,US1A,,225,27,121,202,9766
+19,MISO171_1 ,MISO171_1_R1,MISO171_1_,"Somers Rd and Reeder Rd, Lyons, MI",-84.973,42.946,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Somers Rd and Reeder Rd, Lyons, MI",2,US,US1,US1A,,253,25,141,202,9684
+20,MISO171_2 ,MISO171_2_R1,MISO171_2_,"Somers Rd and Reeder Rd, Lyons, MI",-84.973,42.946,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Somers Rd and Reeder Rd, Lyons, MI",2,US,US1,US1A,,253,25,141,202,9684
+21,MISO171_3 ,MISO171_3_R1,MISO171_3_,"Somers Rd and Reeder Rd, Lyons, MI",-84.973,42.946,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Somers Rd and Reeder Rd, Lyons, MI",2,US,US1,US1A,,253,25,141,202,9684
+22,MISO171_4 ,MISO171_4_R1,MISO171_4_,"Somers Rd and Reeder Rd, Lyons, MI",-84.973,42.946,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Somers Rd and Reeder Rd, Lyons, MI",2,US,US1,US1A,,253,25,141,202,9684
+23,MISO171_5 ,MISO171_5_R1,MISO171_5_,"Somers Rd and Reeder Rd, Lyons, MI",-84.973,42.946,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Somers Rd and Reeder Rd, Lyons, MI",2,US,US1,US1A,,253,25,141,202,9684
+24,MISO171_7 ,MISO171_7_R1,MISO171_7_,"Somers Rd and Reeder Rd, Lyons, MI",-84.973,42.946,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Somers Rd and Reeder Rd, Lyons, MI",2,US,US1,US1A,,253,25,141,202,9684
+25,MISO171_8 ,MISO171_8_R1,MISO171_8_,"Somers Rd and Reeder Rd, Lyons, MI",-84.973,42.946,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Somers Rd and Reeder Rd, Lyons, MI",2,US,US1,US1A,,253,25,141,202,9684
+26,MI_SF_10_16 ,MI_SF_10_16_R1,MI_SF_10_1,"Hopp Rd Westphalia, MI",-84.72,42.881,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Hopp Rd Westphalia, MI",3,US,US1,US1A,,248,25,134,202,9688
+27,MI_SF_1_36 ,MI_SF_1_36_R1,MI_SF_1_36,"Elm Valley Rd, Pardel Rd near Galien, MI",-86.5,41.8,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Elm Valley Rd, Pardel Rd near Galien, MI",4,US,US1,US1A,,284,19,176,215,9553
+28,MI_SF_2_16 ,MI_SF_2_16_R1,MI_SF_2_16,"Allegan County, MI",-85.836,42.624,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Allegan County, MI",Unknown,US,US1,US1A,,269,19,169,197,9296
+29,MI_SF_9_8 ,MI_SF_9_8_R1,MI_SF_9_8_,"Hopp Rd Westphalia, MI",-84.72,42.881,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Hopp Rd Westphalia, MI",3,US,US1,US1A,,248,25,134,202,9688
+30,MP144 ,MP144_R1,MP144_R1,Kentucky,-84.27,37.839,South,Central,Central US,KY,KY,Soybean,no,Unknown,Unknown,US,US2,US2,,323,15,252,233,8411
+31,MP220 ,MP220_R1,MP220_R1,Tennessee,-86.58,35.517,South,Central,Central US,TN,TN,Soybean,no,Unknown,Unknown,US,US1,US1A,,309,16,274,245,7893
+32,MP223 ,MP223_R1,MP223_R1,Texas,-99.902,31.969,South,South ,South US,TX,TX,Soybean,no,Unknown,Unknown,US,US2,US2,,189,42,81,272,7604
+33,MP249 ,MP249_R1,MP249_R1,Georgia,-82.9,32.166,South,Southeast,South US,GA,GA,Soybean,no,Unknown,Unknown,US,US2,US2,,347,22,200,265,6665
+34,MP250 ,MP250_R1,MP250_R1,Georgia,-82.9,32.166,South,Southeast,South US,GA,GA,Soybean,no,Unknown,Unknown,US,US2,US2,,347,22,200,265,6665
+35,MP258 ,MP258_R1,MP258_R1,South Carolina,-81.164,33.836,South,Southeast,South US,SC,SC,Soybean,no,Unknown,Unknown,US,US1,US1B,,386,21,229,261,7121
+36,M_15_10 ,M_15_10_R1,M_15_10_R1,"700 E. Kent Rd, Merrill, MI",-84.339,43.511,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"700 E. Kent Rd, Merrill, MI",6,US,US1,US1A,,232,26,124,201,9697
+37,M_15_11 ,M_15_11_R1,M_15_11_R1,"700 E. Kent Rd, Merrill, MI",-84.339,43.511,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"700 E. Kent Rd, Merrill, MI",6,US,US1,US1A,,232,26,124,201,9697
+38,M_15_12 ,M_15_12_R1,M_15_12_R1,"2135 W Wadsworth Rd, Bad Axe, MI 48413 ",-83.061,43.75,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"2135 W Wadsworth Rd, Bad Axe, MI 48413 ",7,US,US1,US1A,,226,23,133,193,9572
+39,M_15_13 ,M_15_13_R1,M_15_13_R1,"2135 W Wadsworth Rd, Bad Axe, MI 48413 ",-83.059,43.75,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"2135 W Wadsworth Rd, Bad Axe, MI 48413 ",7,US,US1,US1A,,226,23,133,193,9572
+40,M_15_14 ,M_15_14_R1,M_15_14_R1,"2135 W Wadsworth Rd, Bad Axe, MI 48413 ",-83.061,43.75,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"2135 W Wadsworth Rd, Bad Axe, MI 48413 ",7,US,US1,US1A,,226,23,133,193,9572
+41,M_15_1 ,M_15_1_R1,M_15_1_R1,"9555 E. Adams Rd, Wheeler, MI",-84.419,43.451,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"9555 E. Adams Rd, Wheeler, MI",8,US,US1,US1A,,236,26,124,201,9684
+42,M_15_2 ,M_15_2_R1,M_15_2_R1,"692 Freeland Rd, Merrill, MI ",-84.343,43.525,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"692 Freeland Rd, Merrill, MI ",9,US,US1,US1A,,232,26,124,201,9697
+43,M_15_3 ,M_15_3_R1,M_15_3_R1,"692 Freeland Rd, Merrill, MI ",-84.343,43.525,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"692 Freeland Rd, Merrill, MI ",9,US,US1,US1A,,232,26,124,201,9697
+44,M_15_4 ,M_15_4_R1,M_15_4_R1,"692 Freeland Rd, Merrill, MI ",-84.343,43.525,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"692 Freeland Rd, Merrill, MI ",9,US,US2,US2,,232,26,124,201,9697
+45,M_15_5 ,M_15_5_R1,M_15_5_R1,"692 Freeland Rd, Merrill, MI ",-84.343,43.525,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"692 Freeland Rd, Merrill, MI ",9,US,US1,US1A,,232,26,124,201,9697
+46,M_15_6 ,M_15_6_R1,M_15_6_R1,"692 Freeland Rd, Merrill, MI ",-84.342,43.525,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"692 Freeland Rd, Merrill, MI ",9,US,US1,US1A,,232,26,124,201,9697
+47,M_15_7 ,M_15_7_R1,M_15_7_R1,"692 Freeland Rd, Merrill, MI ",-84.342,43.525,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"692 Freeland Rd, Merrill, MI ",9,US,US1,US1A,,232,26,124,201,9697
+48,M_15_8 ,M_15_8_R1,M_15_8_R1,"692 Freeland Rd, Merrill, MI ",-84.342,43.525,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"692 Freeland Rd, Merrill, MI ",9,US,US1,US1A,,232,26,124,201,9697
+49,M_15_9 ,M_15_9_R1,M_15_9_R1,"700 E. Kent Rd, Merrill, MI",-84.339,43.511,North,Midwest,Midwest US,MI,MI,Dry bean,yes,"700 E. Kent Rd, Merrill, MI",6,US,US1,US1A,,232,26,124,201,9697
+50,Md10 ,Md10_R1,Md10_R1,"Muscoda, WI",-90.443,43.185,North,Midwest,Midwest US,WI,WI,Soybean,yes,"Muscoda, WI",Unknown,US,US1,US1A,,297,40,92,208,10733
+51,Md3 ,Md3_R1,Md3_R1,"Muscoda, WI",-90.443,43.185,North,Midwest,Midwest US,WI,WI,Soybean,yes,"Muscoda, WI",Unknown,US,US1,US1A,,297,40,92,208,10733
+52,Md5 ,Md5_R1,Md5_R1,"Muscoda, WI",-90.443,43.185,North,Midwest,Midwest US,WI,WI,Soybean,yes,"Muscoda, WI",Unknown,US,US1,US1A,,297,40,92,208,10733
+53,Md6 ,Md6_R1,Md6_R1,"Muscoda, WI",-90.443,43.185,North,Midwest,Midwest US,WI,WI,Soybean,yes,"Muscoda, WI",Unknown,US,US1,US1A,,297,40,92,208,10733
+54,Md7 ,Md7_R1,Md7_R1,"Muscoda, WI",-90.443,43.185,North,Midwest,Midwest US,WI,WI,Soybean,yes,"Muscoda, WI",Unknown,US,US1,US1A,,297,40,92,208,10733
+55,MpSDSU ,MpSDSU_R1,MpSDSU_R1,"Brookings County, SD",-96.835,44.421,North,West North Central,Ethiopian mustard,SD,SD,Brassica carinata,yes,"Brookings County, SD",Unknown,US,US2,US2,,254,59,38,205,11755
+56,Mph_21 ,Mph_21_R1,Mph_21_R1,"Sena - Centro Agropecuario Buga, Buga - Valle del Cauca, Colombia",-76.312,3.892,Colombia,Colombia,Colombia,Valle,Colombia,Dry bean,yes,"Sena - Centro Agropecuario Buga, Buga - Valle del Cauca, Colombia",10,COLPR,COLPR2,COLPR2,,228,33,171,241,294
+57,Mph_22 ,Mph_22_R1,Mph_22_R1,"Sena - Centro Agropecuario Buga, Buga - Valle del Cauca, Colombia",-76.312,3.892,Colombia,Colombia,Colombia,Valle,Colombia,Dry bean,yes,"Sena - Centro Agropecuario Buga, Buga - Valle del Cauca, Colombia",10,US,US1,US1B,,228,33,171,241,294
+58,Mph_23 ,Mph_23_R1,Mph_23_R1,"Sena - Centro Agropecuario Buga, Buga - Valle del Cauca, Colombia",-76.312,3.892,Colombia,Colombia,Colombia,Valle,Colombia,Dry bean,yes,"Sena - Centro Agropecuario Buga, Buga - Valle del Cauca, Colombia",10,US,US1,US1B,,228,33,171,241,294
+59,Mph_24 ,Mph_24_R1,Mph_24_R1,"Santander de Quilichao, Cauca, Colombia",-76.485,3.012,Colombia,Colombia,Colombia,Cauca,Colombia,Dry bean,yes,"Santander de Quilichao, Cauca, Colombia",5,COLPR,COLPR1,COLPR1,,564,38,236,237,267
+60,Mph_27 ,Mph_27_R1,Mph_27_R1,"CIAT, Palmira, Colombia",-76.355,3.503,Colombia,Colombia,Colombia,Valle CIAT,Colombia,Dry bean,yes,"CIAT, Palmira, Colombia",12,COLPR,COLPR1,COLPR1,,217,39,148,242,255
+61,Mph_28 ,Mph_28_R1,Mph_28_R1,"CIAT, Palmira, Colombia",-76.355,3.503,Colombia,Colombia,Colombia,Valle CIAT,Colombia,Dry bean,yes,"CIAT, Palmira, Colombia",12,COLPR,COLPR2,COLPR2,,217,39,148,242,255
+62,Mph_35 ,Mph_35_R1,Mph_35_R1,"CIAT, Palmira, Colombia",-76.355,3.503,Colombia,Colombia,Colombia,Valle CIAT,Colombia,Dry bean,yes,"CIAT, Palmira, Colombia",12,COLPR,COLPR2,COLPR2,,217,39,148,242,255
+63,Mph_38 ,Mph_38_R1,Mph_38_R1,"CIAT, Palmira, Colombia",-76.355,3.503,Colombia,Colombia,Colombia,Valle CIAT,Colombia,Dry bean,yes,"CIAT, Palmira, Colombia",12,COLPR,COLPR1,COLPR1,,217,39,148,242,255
+64,Mph_39 ,Mph_39_R1,Mph_39_R1,"CIAT, Palmira, Colombia",-76.355,3.503,Colombia,Colombia,Colombia,Valle CIAT,Colombia,Dry bean,yes,"CIAT, Palmira, Colombia",12,COLPR,COLPR1,COLPR1,,217,39,148,242,255
+65,Mph_40 ,Mph_40_R1,Mph_40_R1,"CIAT, Palmira, Colombia",-76.355,3.503,Colombia,Colombia,Colombia,Valle CIAT,Colombia,Dry bean,yes,"CIAT, Palmira, Colombia",12,US,US1,NA,,217,39,148,242,255
+66,Mph_45 ,Mph_45_R1,Mph_45_R1,"Santander de Quilichao, Cauca, Colombia",-76.485,3.012,Colombia,Colombia,Colombia,Cauca,Colombia,Dry bean,yes,"Santander de Quilichao, Cauca, Colombia",5,COLPR,COLPR1,COLPR1,,564,38,236,237,267
+67,Mph_46 ,Mph_46_R1,Mph_46_R1,"Santander de Quilichao, Cauca, Colombia",-76.485,3.012,Colombia,Colombia,Colombia,Cauca,Colombia,Dry bean,yes,"Santander de Quilichao, Cauca, Colombia",5,COLPR,COLPR1,COLPR1,,564,38,236,237,267
+68,Mph_48 ,Mph_48_R1,Mph_48_R1,"Santander de Quilichao, Cauca, Colombia",-76.485,3.012,Colombia,Colombia,Colombia,Cauca,Colombia,Dry bean,yes,"Santander de Quilichao, Cauca, Colombia",5,COLPR,COLPR1,COLPR1,,564,38,236,237,267
+69,Mph_49 ,Mph_49_R1,Mph_49_R1,"Santander de Quilichao, Cauca, Colombia",-76.485,3.012,Colombia,Colombia,Colombia,Cauca,Colombia,Dry bean,yes,"Santander de Quilichao, Cauca, Colombia",5,US,US1,US1A,,564,38,236,237,267
+70,Mph_50 ,Mph_50_R1,Mph_50_R1,"Armero, Tolima, Colombia",-74.905,4.965,Colombia,Colombia,Colombia,Tolima,Colombia,Dry bean,yes,"Armero, Tolima, Colombia",16,COLPR,COLPR1,COLPR1,,359,44,218,274,345
+71,Mph_52 ,Mph_52_R1,Mph_52_R1,"Corpoica, Magdalena, Colombia",-74.224,10.727,Colombia,Colombia,Colombia,Magdalena,Colombia,Dry bean,yes,"Corpoica, Magdalena, Colombia",13,COLPR,COLPR1,COLPR1,,212,78,12,283,442
+72,Mph_53 ,Mph_53_R1,Mph_53_R1,"Corpoica, Magdalena, Colombia",-74.224,10.727,Colombia,Colombia,Colombia,Magdalena,Colombia,Dry bean,yes,"Corpoica, Magdalena, Colombia",13,COLPR,COLPR1,COLPR1,,212,78,12,283,442
+73,Mph_54 ,Mph_54_R1,Mph_54_R1,"Corpoica, Magdalena, Colombia",-74.224,10.727,Colombia,Colombia,Colombia,Magdalena,Colombia,Dry bean,yes,"Corpoica, Magdalena, Colombia",13,COLPR,COLPR2,COLPR2,,212,78,12,283,442
+74,Mph_56 ,Mph_56_R1,Mph_56_R1,"Corpoica, Magdalena, Colombia",-74.224,10.727,Colombia,Colombia,Colombia,Magdalena,Colombia,Dry bean,yes,"Corpoica, Magdalena, Colombia",13,COLPR,COLPR2,COLPR2,,212,78,12,283,442
+75,Mph_5 ,Mph_5_R1,Mph_5_R1,"Santander de Quilichao, Cauca, Colombia",-76.485,3.012,Colombia,Colombia,Colombia,Cauca,Colombia,Dry bean,yes,"Santander de Quilichao, Cauca, Colombia",5,COLPR,COLPR1,COLPR1,,564,38,236,237,267
+76,SAG5_4 ,SAG5_4_R1,SAG5_4_R1,"Saginaw County, MI",-84.313,43.348,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Saginaw County, MI",Unknown,US,US1,US1A,,232,26,124,203,9694
+77,TN262 ,TN262_R1,TN262_R1,Tennessee,-86.58,35.517,South,Central,Central US,TN,TN,Soybean,no,Unknown,Unknown,US,US1,US1A,,309,16,274,245,7893
+78,TN270 ,TN270_R1,TN270_R1,Mississippi,-89.399,32.355,South,South,South US,MS,MS,Soybean,no,Unknown,Unknown,US,US1,US1B,,326,19,275,259,6981
+79,TN279 ,TN279_R1,TN279_R1,Tennessee,-86.58,35.517,South,Central,Central US,TN,TN,Soybean,no,Unknown,Unknown,US,US1,US1A,,309,16,274,245,7893
+80,TN280 ,TN280_R1,TN280_R1,Kentucky,-84.27,37.839,South,Central,Central US,KY,KY,Soybean,no,Unknown,Unknown,US,US1,US1A,,323,15,252,233,8411
+81,TN380 ,TN380_R1,TN380_R1,Mississippi,-89.399,32.355,South,South,South US,MS,MS,Soybean,no,Unknown,Unknown,US,US1,US1B,,326,19,275,259,6981
+82,TN4 ,TN4_R1,TN4_R1,Tennessee,-86.58,35.517,South,Central,Central US,TN,TN,Soybean,no,Unknown,Unknown,US,US1,US1A,,309,16,274,245,7893
+83,TN501 ,TN501_R1,TN501_R1,Louisiana,-91.962,30.984,South,South,South US,LA,LA,Soybean,no,Unknown,Unknown,COLPR,COLPR2,COLPR2,,348,14,314,271,6566
+84,TN550 ,TN550_R1,TN550_R1,Texas,-99.902,31.969,South,South,South US,TX,TX,Soybean,no,Unknown,Unknown,US,US2,US2,,189,42,81,272,7604
+85,TN5 ,TN5_R1,TN5_R1,Tennessee,-86.58,35.517,South,Central,Central US,TN,TN,Soybean,no,Unknown,Unknown,US,US1,US1A,,309,16,274,245,7893
+86,UPR_Mph_ISA2 ,UPR_Mph_ISA2_R1,UPR_ISA2,"Isabela, Puerto Rico",-67.066,18.496,Puerto Rico,Puerto Rico,Puerto Rico,Isabela,Puerto Rico,Dry bean,yes,"Isabela, Puerto Rico",Unknown,COLPR,COLPR1,COLPR1,,436,26,249,261,1145
+87,UPR_Mph_ISA3 ,UPR_Mph_ISA3_R1,UPR_ISA3,"Isabela, Puerto Rico",-67.066,18.496,Puerto Rico,Puerto Rico,Puerto Rico,Isabela,Puerto Rico,Dry bean,yes,"Isabela, Puerto Rico",Unknown,COLPR,COLPR2,COLPR2,,436,26,249,261,1145
+88,UPR_Mph_JD1 ,UPR_Mph_JD1_R1,UPR_JD1,"Juana Diaz, Puerto Rico",-66.851,18.17,Puerto Rico,Puerto Rico,Puerto Rico,Juana Diaz,Puerto Rico,Dry bean,yes,"Juana Diaz, Puerto Rico",Unknown,COLPR,COLPR1,COLPR1,,726,47,242,234,1191
+89,UPR_Mph_JD2 ,UPR_Mph_JD2_R1,UPR_JD2,"Juana Diaz, Puerto Rico",-66.851,18.17,Puerto Rico,Puerto Rico,Puerto Rico,Juana Diaz,Puerto Rico,Dry bean,yes,"Juana Diaz, Puerto Rico",Unknown,COLPR,COLPR1,COLPR1,,726,47,242,234,1191
+90,UPR_Mph_JD3 ,UPR_Mph_JD3_R1,UPR_JD3,"Juana Diaz, Puerto Rico",-66.851,18.17,Puerto Rico,Puerto Rico,Puerto Rico,Juana Diaz,Puerto Rico,Dry bean,yes,"Juana Diaz, Puerto Rico",Unknown,COLPR,COLPR1,COLPR1,,726,47,242,234,1191
+91,W12_6 ,W12_6_R1,W12_6_R1,"Hamilton, MI",-85.999,42.671,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Hamilton, MI",Unknown,US,US2,US2,,260,20,161,200,9225
+92,W23 ,W23_R1,W23_R1,"Pewamo, MI ",-84.847,43.001,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Pewamo, MI ",Unknown,US,US1,US1A,,248,25,136,202,9695
+93,W25 ,W25_R1,W25_R1,"Hamilton, MI",-85.999,42.671,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Hamilton, MI",Unknown,US,US2,US2,,260,20,161,200,9225
+94,W3_5 ,W3_5_R1,W3_5_R1,"Hamilton, MI",-85.999,42.671,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Hamilton, MI",Unknown,US,US2,US2,,260,20,161,200,9225
+95,W_MISO2_3_6 ,W_MISO2_3_6_R1,W_MISO2_3_,"Corner 54th 136th ave Hamilton, MI",-86.1,42.7,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Corner 54th 136th ave Hamilton, MI",14,US,US1,US1A,,259,21,158,201,9230
+96,W_MISO2_4_10 ,W_MISO2_4_10_R1,W_MISO2_4_,"Portland Rd Jordan lake rd, MI",-85.1,42.9,North,Midwest,Midwest US,MI,MI,Soybean,yes,"Portland Rd Jordan lake rd, MI",15,US,US1,US1A,,257,24,145,202,9705
