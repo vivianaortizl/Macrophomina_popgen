@@ -5,6 +5,10 @@ R scripts for analysis presented in the manuscript: .Rmd files
 
 Data:
 -Isolates database: 2021_95mp_vcforder_climKG2018_1km.csv
+
 -Isolates database and climatic variables: 021420_prempdata_95.csv
+
 -vcf files: .vcf, .vcf.gz and .vcf.zip files
+
 -Alignment in phylip format: .phy file
+
