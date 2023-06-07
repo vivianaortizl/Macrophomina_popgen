@@ -13,4 +13,4 @@ Data:
 
 -Alignment in phylip format: .phy file
 
--Extended Data Supplementary File 1: Phyre2 data for structural modeling of the 753,275-ankyrin protein 
+-Extended Data Supplementary File 1: b23ebe507a929c20.zip. Phyre2 data for structural modeling of the 753,275-ankyrin protein 
