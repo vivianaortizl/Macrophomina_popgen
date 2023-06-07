@@ -1,0 +1,1878 @@
+---
+title: "04_RDA_Mp"
+author: "Viviana Ortiz"
+date: "2/20/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r eval = TRUE, echo = FALSE, results = 'hide'}
+
+rm(list=ls(all=TRUE)) #Removes all variables in the global environment
+
+Sys.time() # prints out the time and date you ran the code
+
+options(scipen = 999) # stops anything from being in scientific notation
+```
+
+#Install packges and load libraries
+
+```{r}
+ipak <- function( pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[,"Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+packages <- c("poppr", "vcfR", "ape", "mmod", "pegas", "ggplot2", "adegenet", "seqinr",
+"magrittr", "plink", "reshape2", "agricolae", "plotly", "reshape2", "cowplot", "ggplot2", "rgdal")
+ipak(packages)
+```
+
+```{r}
+#install.packages(c("psych","vegan"), dependencies=TRUE)
+
+# Load packages
+# -------------
+library(psych)    # Used to investigate correlations among predictors
+library(vegan)    # Used to run RDA
+library(adegenet)
+library(caret)
+library(rgdal)
+library(lavaan)
+library(simba)
+library(ggpubr)
+library(adespatial)
+```
+
+# 1. Loading data and creating genotype files
+
+#Genotype table from filtered vcf (biallelic, maf 0.02)
+```{r}
+vcfmafbial <- "./051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_MAF002_biallelic.vcf.gz"
+vcf <- read.vcfR(vcfmafbial,
+                 convertNA = TRUE, verbose = TRUE)
+vcf #95 samples, 86 CHROMs, 76,981 variants
+
+knitr::kable(vcf@gt[c(1:10),1:4])
+#Extract GT: Genotype
+gt <- extract.gt(vcf, element = 'GT')
+head(gt)
+
+#Convert gt matrix to numeric
+snpnames <- rownames(gt)
+head(snpnames)
+gt <- apply(gt, 2, as.numeric)
+gt[1:10,1:10]
+rownames(gt) <- snpnames
+gt[1:10,1:10]
+#Transpose allele frequency matrix to use in conStruct and in others
+gt.indiv <- t(gt) 
+gt.indiv[1:10,1:10]#Genotype
+#write.csv(gt.indiv, "./051920_vcfs/051920_mafbiallelic_gt.csv")
+```
+
+
+# 1.1 Genotype table from LD filtered vcf (biallelic, maf 0.02, ld 0.9 )
+```{r}
+ 
+vcfmafbialld <- "./051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_MAF002_bial.ld09.vcf.gz"
+vcfld <- read.vcfR(vcfmafbialld,
+                 convertNA = TRUE, verbose = TRUE)
+vcfld #95 samples 86 CHROMs 11,421 variants
+
+knitr::kable(vcfld@gt[c(1:10),1:4])
+#Extract GT: Genotype
+gt <- extract.gt(vcfld, element = 'GT')
+head(gt)
+
+#Convert gt matrix to numeric
+snpnames <- rownames(gt)
+head(snpnames)
+gt <- apply(gt, 2, as.numeric)
+gt[1:10,1:10]
+rownames(gt) <- snpnames
+gt[1:10,1:10]
+#Transpose allele frequency matrix to use in conStruct and in others
+gt.ld <- t(gt) 
+gt.ld[1:10,1:10]#Genotype
+#write.csv(gt.ld, "./051920_vcfs/051920_mafbialld09_gt.csv")
+```
+
+
+# 1.2 Genotype table from vcf with only intergenic SNPs
+To account for population structure in some of the following RDA-based procedures we conducted a principal component analysis (PCA) on the set of  intergenic SNPs and retained the first three PCs as proxy of population evolutionary history. 
+
+```{r}
+vcfmafbialig <- "/Users/vivianaortiz/Documents/Macrophomina_project/Mp_popgenome/R_mp_genome/0222_variant_annotation/snpeff_results/0222_results_mp39mafbial/mp39mafbial.ann.filter_intergenic_any.vcf"
+
+vcfig <- read.vcfR(vcfmafbialig,
+                 convertNA = TRUE, verbose = TRUE)
+vcfig #95 samples, 85 CHROMs 50,270 variants (this is only intergenic variants)
+
+knitr::kable(vcfig@gt[c(1:10),1:4])
+#Extract GT: Genotype
+gt.ig <- extract.gt(vcfig, element = 'GT')
+
+#Convert gt matrix to numeric
+snpnames <- rownames(gt.ig)
+head(snpnames)
+gt.ig <- apply(gt.ig, 2, as.numeric)
+gt.ig[1:10,1:10]
+rownames(gt.ig) <- snpnames
+gt.ig[1:10,1:10]
+#Transpose allele frequency matrix to use in conStruct and in others
+gt.ig <- t(gt.ig) 
+gt.ig[1:10,1:10]#Genotype
+
+#write.csv(gt.ig, "./051920_vcfs/051920_mafbiallelicintergenic_gt.csv")
+```
+
+```{r}
+vcfmafbial.ld.ig <- "/Users/vivianaortiz/Documents/Macrophomina_project/Mp_popgenome/R_mp_genome/0222_variant_annotation/snpeff_results/0422_results_mp39mafbialld09/mp39mafbial.ld09.ann.intergenic_any.vcf"
+
+vcfldig <- read.vcfR(vcfmafbial.ld.ig,
+                 convertNA = TRUE, verbose = TRUE)
+vcfldig #95 samples, 85 CHROMs 7,331 variants (this is only intergenic variants after ld filter)
+
+knitr::kable(vcfldig@gt[c(1:10),1:4])
+#Extract GT: Genotype
+gt.ld.ig <- extract.gt(vcfldig, element = 'GT')
+
+#Convert gt matrix to numeric
+snpnames <- rownames(gt.ld.ig)
+head(snpnames)
+gt.ld.ig <- apply(gt.ld.ig, 2, as.numeric)
+gt.ld.ig[1:10,1:10]
+rownames(gt.ld.ig) <- snpnames
+gt.ld.ig[1:10,1:10]
+#Transpose allele frequency matrix to use in conStruct and in others
+gt.ld.ig <- t(gt.ld.ig) 
+gt.ld.ig[1:10,1:10]#Genotype
+
+#write.csv(gt.ld.ig, "./051920_vcfs/051920_mafbial.ld09.intergenic_gt.csv")
+```
+
+
+# 1.3 Including isolate metadata to assign populations
+```{r}
+#Setting the populations
+folder <- "isolates_database/"
+data <- read.csv(paste0(folder, "2021_95mp_vcforder_climKG2018_1km.csv"), na.strings = ("NA")) #metadata
+
+data$isolate <- as.factor(data$isolate)
+data$isolate_vcf <- as.factor(data$isolate_vcf)
+data$Location <- as.factor(data$Location)
+data$Country <- as.factor(data$Country)
+data$State_Department <- as.factor(data$State_Department)
+data$Region <- as.factor(data$Region)
+data$region_noaa<- as.factor(data$region_noaa)
+data$region_IPCC<- as.factor(data$region_IPCC)
+data$Host <- as.factor(data$Host)
+data$Municipality <- as.factor(data$Municipality)
+data$field <-as.factor(data$field)
+```
+
+# 1.4. Inferring population structure using only intergenic SNPs
+Principal components analysis on putatively neutral snps (intergenic)
+
+#Using non-ld-filtered only intergenic vcf 
+```{r}
+#Colors 
+library(adegenet)
+library(scales)
+library(RColorBrewer)
+
+gl.neutral <- vcfR2genlight(vcfig[is.polymorphic(vcfig, na.omit = T)])
+gl.neutral #95 genotypes, 50,270 binary SNPs, size: 5.3 Mb
+
+#Setting the ploidy
+ploidy(gl.neutral) <- as.integer(1)
+
+strata(gl.neutral) <- data.frame(data)
+gl.neutral
+strata(gl.neutral)
+head(strata(gl.neutral))
+tail(strata(gl.neutral))
+colnames(strata(gl.neutral))
+
+nameStrata(gl.neutral) <- ~vcf_order/Isolate/Isolate_vcf/label_raxml_ng/location_full/Longitude/Latitude/Region/Region_noaa/Region_IPCCC/Country/Location/State_Department/Host/municipality_resolution/Municipality/Field/Clade/Subclade/Genetic_Cluster/source/comments/ClimZ_code/ClimZ/description/RGB
+head(strata(gl.neutral))
+
+
+#Set population to Genetic_Cluster
+setPop(gl.neutral) <- ~Genetic_Cluster
+gl.neutral
+
+mp.pca <- glPca(gl.neutral, nf = 4) #nf = NULL if want to select the number of axes to be retained
+barplot(100*mp.pca$eig/sum(mp.pca$eig), col = heat.colors(50), main="PCA Eigenvalues")#looks like 2 or 3 explain most of the variance
+title(ylab="Percent of variance\nexplained", line = 2)
+title(xlab="Eigenvalues", line = 1)
+
+#To see variance explained
+var.expl <- 100*mp.pca$eig/sum(mp.pca$eig)
+var.expl
+
+mp.pca.scores <- as.data.frame(mp.pca$scores)
+mp.pca.scores$pop <- pop(gl.neutral)
+
+#see order to assign colors
+levels(mp.pca.scores$pop)
+#[1] "US2"    "US1A"   "COLPR2" "US1B"   "COLPR1"
+#colors
+subclade.col5 <- c("#F06C45CC", "#FDA440CC", "#1F78B4CC","#569EA4", "#6A3D9ACC")
+show_col(subclade.col5)
+#ordered colors
+subclade.col5 <- c("#1F78B4CC","#569EA4", "#6A3D9ACC", "#F06C45CC", "#FDA440CC")
+show_col(subclade.col5)
+
+p <- ggplot(mp.pca.scores, aes(x=PC1, y=PC2, colour=pop, fill=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC1, y=PC3, colour=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC2, y=PC3, colour=pop)) 
+p <- p + geom_point(shape=21, colour="black", size=4) + theme_classic()
+p
+p <- p + scale_colour_manual(values = subclade.col5, aesthetics = c("fill", "colour"), na.value = "grey90",
+                             limits = c("US1A", "US1B", "US2", "COLPR1","COLPR2"),
+                             name="Genetic Cluster") 
+p
+p <- p + stat_ellipse(level = 0.95, size = 0.6)
+p
+p <- p + labs(x= "PC1 (50.9%)", y = "PC2 (15.4%)")#vcf 77k 
+p
+p <- p + geom_hline(yintercept = 0, size=0.1) 
+p <- p + geom_vline(xintercept = 0, size=0.1) 
+p <- p + theme(panel.border = element_rect(fill = NA)) 
+p
+p <- p + theme(legend.box.background = element_rect(), legend.box.margin = margin()) 
+p
+#ggsave(plot = p, "./202111_figures/0221_pca_neutral.png", dpi = 600, units = "in", height = 4, width = 5)
+
+```
+
+
+#Using ld-filtered only intergenic snps vcf 
+```{r}
+#Colors 
+library(adegenet)
+library(scales)
+library(RColorBrewer)
+
+gl.ld.neutral <- vcfR2genlight(vcfldig[is.polymorphic(vcfldig, na.omit = T)])
+gl.ld.neutral #95 genotypes,  7,331 binary SNPs, size: 916.9 Kb
+
+#Setting the ploidy
+ploidy(gl.ld.neutral) <- as.integer(1)
+
+strata(gl.ld.neutral) <- data.frame(data)
+gl.ld.neutral
+strata(gl.ld.neutral)
+head(strata(gl.ld.neutral))
+tail(strata(gl.ld.neutral))
+colnames(strata(gl.ld.neutral))
+
+nameStrata(gl.ld.neutral) <- ~vcf_order/Isolate/Isolate_vcf/label_raxml_ng/location_full/Longitude/Latitude/Region/Region_noaa/Region_IPCCC/Country/Location/State_Department/Host/municipality_resolution/Municipality/Field/Clade/Subclade/Genetic_Cluster/source/comments/ClimZ_code/ClimZ/description/RGB
+head(strata(gl.ld.neutral))
+
+
+#Set population to Genetic_Cluster
+setPop(gl.ld.neutral) <- ~Genetic_Cluster
+gl.ld.neutral
+
+mp.pca <- glPca(gl.ld.neutral, nf = 4) #nf = NULL if want to select the number of axes to be retained
+barplot(100*mp.pca$eig/sum(mp.pca$eig), col = heat.colors(50), main="PCA Eigenvalues")#looks like 2 or 3 explain most of the variance
+title(ylab="Percent of variance\nexplained", line = 2)
+title(xlab="Eigenvalues", line = 1)
+
+#To see variance explained
+var.expl <- 100*mp.pca$eig/sum(mp.pca$eig)
+var.expl
+
+mp.pca.ld.scores <- as.data.frame(mp.pca$scores)
+mp.pca.ld.scores$pop <- pop(gl.ld.neutral)
+
+#see order to assign colors
+levels(mp.pca.ld.scores$pop)
+#[1] "US2"    "US1A"   "COLPR2" "US1B"   "COLPR1"
+#colors
+subclade.col5 <- c("#F06C45CC", "#FDA440CC", "#1F78B4CC","#569EA4", "#6A3D9ACC")
+show_col(subclade.col5)
+#ordered colors
+subclade.col5 <- c("#1F78B4CC","#569EA4", "#6A3D9ACC", "#F06C45CC", "#FDA440CC")
+show_col(subclade.col5)
+
+p <- ggplot(mp.pca.ld.scores, aes(x=PC1, y=PC2, colour=pop, fill=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC1, y=PC3, colour=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC2, y=PC3, colour=pop)) 
+p <- p + geom_point(shape=21, colour="black", size=4) + theme_classic()
+p
+p <- p + scale_colour_manual(values = subclade.col5, aesthetics = c("fill", "colour"), na.value = "grey90",
+                             limits = c("US1A", "US1B", "US2", "COLPR1","COLPR2"),
+                             name="Genetic Cluster") 
+p
+p <- p + stat_ellipse(level = 0.95, size = 0.6)
+p
+p <- p + labs(x= "PC1 (36.9%)", y = "PC2 (18.5%)")#vcf 77k 
+p
+p <- p + geom_hline(yintercept = 0, size=0.1) 
+p <- p + geom_vline(xintercept = 0, size=0.1) 
+p <- p + theme(panel.border = element_rect(fill = NA)) 
+p
+p <- p + theme(legend.box.background = element_rect(), legend.box.margin = margin()) 
+p
+#ggsave(plot = p, "./202111_figures/0221_pca_ld09_neutral.png", dpi = 600, units = "in", height = 4, width = 5)
+
+```
+
+
+
+#Read genotype data 
+This is just in case we are starting analysis from genotype files, however it takes longer than creating genotype files from vcf files
+```{r}
+#Genotype data
+#we will use the genotype table created previously
+# gt.indiv <- read.csv(file = "./051920_vcfs/051920_mafbiallelic_gt.csv", row.names=1)
+# dim(gt.indiv)#95 76981
+# gt.indiv[1:10,1:10]#Genotype table (which is the call of reference (0) or alternative (1) allele, this should be equal to the frequency of the minor (alternative) allele because it is haploid). Each column corresponds to a specific locus and rows are individuals. Switching major and minor allele does not affect the RDA-based analyses described below
+# sum(is.na(gt.indiv)) # 0 No missing data 
+# 
+# #Genotype data for only intergenic snps
+# gt.ig <- read.csv(file = "./051920_vcfs/051920_mafbiallelicintergenic_gt.csv", row.names=1)
+# dim(gt.ig)#95 50270
+# gt.ig[1:10,1:10]
+# 
+# 
+# ####Genotype table for ld-filtered vcf
+# 
+# gt.ld <- read.csv("./051920_vcfs/051920_mafbialld09_gt.csv", row.names=1)#this file is only snps and ld09 filtered is the same as the one I created on may 2021 called ..snp09
+# dim(gt.ld) #95 11421
+# gt.ld[1:10,1:10]
+# 
+# #Not run, This is just to get results with gt.indiv (not ld filtered) without changing the code already writen with gt.ld object
+# #gt.ld <- gt.indiv
+
+
+```
+
+# 1.5 Read environmental predictors and other metadata 
+```{r}
+env <- read.csv("/Users/vivianaortiz/Documents/MSU_courses/FS_19/FOR870_SpatialEcology/Spatial_Ecology_R/Mp_SDM_paper/databases_outputR/021420_prempdata_95.csv")
+
+str(env)
+
+
+#Convert some columns to factors (not character)
+colnames(env)
+cols <- c("location", "Region", "region_noaa", "Location", "state", "state_country", "host", "town_resolution", "town", "field", "clade", "subclade", "subclade2")
+env[cols] <- lapply(env[cols], factor) 
+
+
+# Confirm that genotypes and environmental data are in the same order
+identical(rownames(gt.indiv), env[,5]) 
+identical(rownames(gt.ld), env[,5]) 
+```
+
+# 1.6 Subset data to US and COLPR clusters to do RDA as well within clusters
+To do RDA analysis within clusters as well
+```{r}
+
+env.us <- env[env$clade=="US",]
+env.colpr <- env[env$clade=="COLPR",]
+  
+gt.ld.us <- gt.ld[rownames(gt.ld) %in% env.us[,5], ]
+gt.ld.colpr <- gt.ld[rownames(gt.ld) %in% env.colpr[,5], ]
+
+# Confirm that genotypes and environmental data are in the same order
+identical(rownames(gt.ld.us), env.us[,5]) 
+identical(rownames(gt.ld.colpr), env.colpr[,5]) 
+```
+
+```{r}
+#RDA is a regression-based method, and so can be subject to problems when using highly correlated predictors (Dormann et al., 2013). Generally, the |r| > 0.7 “rule of thumb” is a good guideline for removing correlated predictors. We will also check for multicollinearity using Variance Inflation Factors (VIF), below.
+
+pairs.panels(env[,23:27], scale=T)
+pairs.panels(env.us[,23:27], scale=T)
+pairs.panels(env.colpr[,23:27], scale=T)
+
+library(corrplot)
+corrplot(cor(env[, 23:27]), type="upper")
+corrplot(cor(env.us[, 23:27]), type="upper")
+corrplot(cor(env.colpr[, 23:27]), type="upper")
+
+hist(env$bio18)
+shapiro.test(env$bio18)
+hist(env$bio15)
+shapiro.test(env$bio15)
+hist(env$bio17)
+shapiro.test(env$bio17)
+hist(env$bio10)
+shapiro.test(env$bio10)
+
+pred<- env[,c(23:27)]
+pred.us<- env.us[,c(23:27)]
+pred.colpr<- env.colpr[,c(23:27)]
+
+#Log transformation of env predictors 
+#did not work log transformations
+# pred.raw <- pred
+# pred$bio18 <- log(pred$bio18)
+# pred$bio15 <- log(pred$bio15)
+# pred$bio17 <- log(pred$bio17)
+# pred$bio10 <- log(pred$bio10)
+# 
+# hist(pred$bio18)
+# shapiro.test(pred$bio18)
+# hist(pred$bio15)
+# shapiro.test(pred$bio15)
+# hist(pred$bio17)
+# shapiro.test(pred$bio17)
+# hist(pred$bio10)
+# shapiro.test(pred$bio10)
+
+
+#Scale environmental predictors 
+
+unscaled_pred <- pred
+pred[,c(1:5)] <- scale(pred[,c(1:5)])
+pairs.panels(pred, scale=T)
+
+
+#BIO18 = Precipitation of Warmest Quarter
+#BIO15 = Precipitation Seasonality (Coefficient of Variation)
+#BIO17 = Precipitation of Driest Quarter
+#BIO10 = Mean Temperature of Warmest Quarter
+#BIO4 = Temperature Seasonality (standard deviation *100)
+colnames(pred) <- c("Pwq","PScv","Pdq","mTwq","TSsd")
+colnames(pred.us) <- c("Pwq","PScv","Pdq","mTwq","TSsd")
+colnames(pred.colpr) <- c("Pwq","PScv","Pdq","mTwq","TSsd")
+pairs.panels(pred, scale=T)
+```
+
+# 2. Identifying spatial (geographic) structure using dbMEMs
+
+# 2.1 dbMEMs (Spatial variables)
+Functions from code associated to: 
+```{r}
+
+####dbMEMs#####
+##############
+#install.packages(c("rgdal","sf"), "https://mac.R-project.org")
+library(maptools)
+library(rgdal)
+library(raster)
+library(adespatial)
+library(vegan)
+
+load_funcs <- function(){
+  # CA.newr
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/CA.newr.R')
+  
+  # PCA.newr
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/PCA.newr.R')
+  
+  # Rao
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/Rao.R')
+  
+  # bartlett.perm
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/bartlett.perm.R')
+  
+  # boxplerk
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/boxplerk.R')
+  
+  # boxplert
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/boxplert.R')
+  
+  # cleanplot.pca
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/cleanplot.pca.R')
+  
+  # coldiss
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/coldiss.R')
+  
+  # drawmap
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/drawmap.R')
+  
+  # drawmap3
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/drawmap3.R')
+  
+  # hcoplot
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/hcoplot.R')
+  
+  # panelutils
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/panelutils.R')
+  
+  # plot.lda
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/plot.lda.R')
+  
+  # plot.links
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/plot.links.R')
+  
+  # polyvars
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/polyvars.R')
+  
+  # quickMEM
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/quickMEM.R')
+  
+  # scalog
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/scalog.R')
+  
+  # screestick
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/screestick.R')
+  
+  # sr.value
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/sr.value.R')
+  
+  # triplot.rda
+  source ('https://raw.githubusercontent.com/zdealveindy/anadat-r/master/scripts/NumEcolR2/triplot.rda.R')
+  
+}
+load_funcs()
+```
+
+# 2.2 Forward variable selection of dbMEMs
+Select which spatial variables are significant
+```{r}
+library(sp)
+
+#Projections##########################
+latlon <- SpatialPoints(cbind(data$lon, data$lat), proj4string=CRS("+proj=longlat"))
+
+#mp_xy <- as.data.frame(spTransform(latlon, CRS("+init=epsg:31973"))) #https://epsg.io/31973
+mp_xy <- as.data.frame(spTransform(latlon, CRS("+init=epsg:26919"))) #http://epsg.io/26919 North America Catrtesian 2D CS
+
+data$x <- mp_xy$coords.x1
+data$y <- mp_xy$coords.x2
+
+#######################################
+#Choosing dbMEMs#
+
+#Forward selection of dbMEMs
+
+dbmem <- quickMEM(gt.ld, mp_xy, perm.max=999)
+dbmem
+summary(dbmem)
+#These results, I just copied to excel file
+#write.csv(dbmem, "./081120_selection/0222_RDAtables/dbmem_forwsel.csv")
+
+dbmem_all <- dbmem(mp_xy) #select data columns MEM1-3
+#write.csv(dbmem_all, "./081120_selection/0222_RDAtables/dbmem_all.csv")
+#These was identified with quickMEM() 
+
+dbmem_3 <- dbmem_all[,c(3)]
+#write.csv(dbmem_3, "./081120_selection/0222_RDAtables/dbmem_3.csv")
+
+#Bubbleplot for MEM1-3 
+#png("081120_selection/0422_RDA_figs/all_dbmems_test.png", width = 6, height = 2.5, units="in", res=600)
+par(mfrow = c(1, 3))
+for(i in 1 : ncol(dbmem$dbMEM))
+{
+  sr.value(mp_xy, dbmem$dbMEM[,i], sub=names(dbmem$dbMEM)[i])
+}
+#dev.off()
+
+#Bubbleplot for MEM3 (only one significant)
+#png("081120_selection/0422_RDA_figs/sig_dbmem3.png", width = 10, height = 8, units="in", res=600)
+par(mfrow = c(1, 1))
+for(i in 1 : ncol(dbmem$dbMEM_red_model))
+{
+  sr.value(mp_xy, dbmem$dbMEM_red_model[,i], sub="dbMEM3")
+}
+#dev.off()
+
+
+##Bubbleplot for MEM1
+#png("081120_selection/0422_RDA_figs/dbmem1.png", width = 3, height = 3, units="in", res=600)
+par(mfrow = c(1,1))
+sr.value(mp_xy, dbmem$dbMEM[,1], sub="dbMEM1")
+#dev.off()
+##Bubbleplot for MEM2
+#png("081120_selection/0422_RDA_figs/dbmem2.png", width = 3, height = 3, units="in", res=600)
+par(mfrow = c(1,1))
+sr.value(mp_xy, dbmem$dbMEM[,2], sub="dbMEM2")
+#dev.off()
+##Bubbleplot for MEM3
+#png("081120_selection/0422_RDA_figs/dbmem3.png", width = 3, height = 3, units="in", res=600)
+par(mfrow = c(1,1))
+sr.value(mp_xy, dbmem$dbMEM[,3], sub="dbMEM3")
+#dev.off()
+
+axes.broad <- anova(dbmem$RDA, by = "axis") # Number of significant axes
+nb.ax.broad <-length(which(axes.broad[ , ncol(axes.broad)] <= 0.05))# From Borcard 2018 Numerical Ecology book
+
+
+```
+
+# 3. Forward variable selection environmental variables 
+Here will conduct forward selection of environmental variables, without and with accounting for spatial structure
+See: https://www.davidzeleny.net/anadat-r/doku.php/en:forward_sel_examples
+
+# 3.1 Forward selection of environmental variables (not conditioning on space)
+
+```{r}
+library(psych)
+library(vegan)
+library(adegenet)
+library(caret)
+library(rgdal)
+library(lavaan)
+library(simba)
+library(ggpubr)
+library(adespatial)
+#1. Test the global model (including all explanatory variables from which you plan to do selection) to see whether it is significant; if it is not, the forward selection should not be done.
+env.rda <- rda(gt.ld ~ ., data=pred, scale=F) #env variables already scaled
+anova(env.rda)#0.001 ***
+RsquareAdj(env.rda)
+env.r2adj <- RsquareAdj(env.rda)$adj.r.squared
+
+#2. Forward selection of env variables using forward.sel 
+env.rda.fwd <- forward.sel(gt.ld, pred,
+                                adjR2thresh = env.r2adj,
+                                nperm = 999, alpha=0.01) #nperm = 9999
+
+env.rda.fwd
+#write.csv(env.rda.fwd, "./081120_selection/0222_RDAtables/fwd_sel_envRDA_NOTcond.csv")
+
+#ANOVA on RDA only with selected env variables
+anova(rda(gt.ld, pred[env.rda.fwd$variables])) #0.001 ***
+
+#2.1 Forward selection of env variables using ordiR2step (testing another forward selection method)
+null_m_uncond <- rda(gt.ld ~ 1, data = pred)
+
+full_m_uncond <- rda(gt.ld ~ ., data=pred, scale=F)  #Full model including all env variables (same as env.rda object) 
+#Call: 
+#rda(formula = gt.ld ~ Pwq + PScv + Pdq + mTwq + TSsd, data = pred, scale = F)
+
+## Forward selection with ordiR2step function
+ordi_uncond <- ordiR2step(null_m_uncond, full_m_uncond, Pin = 0.01, R2permutations = 1000, R2scope = T)
+anova_ordi_uncond <- ordi_uncond$anova
+anova_ordi_uncond
+#write.csv(anova_ordi_uncond, "./081120_selection/0222_RDAtables/ordir2_envRDA_NOTcond.csv")
+
+#With both forward selection methods the same env variables were selected 
+
+#Selected environmental variables with forward selection using RDA not conditioned
+sel_envs <- data.frame(pred$TSsd, pred$Pwq, pred$PScv, pred$mTwq) #significant in ordi and forward sel
+
+##Env fit###
+e1 <- envfit(env.rda, pred, choi=c(1:4), permutations = 9999) #Fit for 4 axes
+e1
+envfit <- data.frame(e1$vectors$arrows, e1$vectors$r, e1$vectors$pvals)
+#write.csv(envfit, "./081120_selection/0222_RDAtables/envfitRDA_allenvvar.csv")
+```
+
+
+
+# 3.2 Forward selection of environmental variables conditioned on space using dbMEMs
+
+Environmental variable selection, constraining on space
+
+
+
+
+
+```{r}
+#Variable selection: forward model with ordistep conditioned on all three dbMEMs spatial variable (dbMEM 1-3)
+#Function ordistep performs step-wise selection of environmental variables based two criteria: if their inclusion into the model leads to significant increase of explained variance (the same as in forward.sel and ordiR2step), and if the AIC of the new model is lower than AIC of the more simple model.
+
+null_m <- rda(gt.ld ~ Condition(as.matrix(dbmem_all)), data = pred)
+
+full_m <- rda(gt.ld ~ . + Condition(as.matrix(dbmem_all)), pred)
+#full_m call: rrda(formula = gt.ld ~ Pwq + PScv + Pdq + mTwq + TSsd + Condition(as.matrix(dbmem_3)), data = pred)
+
+anova(full_m) #0.001 ***
+#The global model (including all explanatory variables from which you plan to do selection) is significant; so the forward selection can be done
+
+#With ordistep, select model using AIC besides the other pars 
+ordi <- ordistep(null_m, scope = formula(full_m), direction="forward")
+summary(ordi, rsquare=T)
+ordi
+anova_ordi <- ordi$anova
+anova_ordi 
+#write.csv(anova_ordi, "./081120_selection/0222_RDAtables/0413_ordist_envRDA_cond_space_dbmemall.csv")
+
+eordi <- envfit(ordi, pred, choi=c(1:4), permutations = 9999) #Fit for 4 axes
+eordi
+
+#Test wiht ordiR2step
+# direction: ordistep (and ordiR2step does not have this argument, but only works forward).
+ordi2 <- ordiR2step(null_m, full_m, Pin = 0.01, R2permutations = 1000, R2scope = T)
+summary(ordi2)
+anova_ordi2 <- ordi2$anova
+anova_ordi2 #R2.adj is cumulative 
+#write.csv(anova_ordi2, "./081120_selection/0222_RDAtables/0413_ordir2_envRDA_cond_spacedmemall.csv")
+
+#Using only significant dbmem_3
+
+null_dbmem3 <- rda(gt.ld ~ Condition(as.matrix(dbmem_3)), data = pred)
+
+full_dbmem3<- rda(gt.ld ~ . + Condition(as.matrix(dbmem_3)), pred)
+#full_m call: rrda(formula = gt.ld ~ Pwq + PScv + Pdq + mTwq + TSsd + Condition(as.matrix(dbmem_3)), data = pred)
+
+anova(full_dbmem3) #0.001 ***
+
+
+#Test wiht ordiR2step
+# direction: ordistep (and ordiR2step does not have this argument, but only works forward).
+ordimem3 <- ordiR2step(null_dbmem3, full_dbmem3, Pin = 0.01, R2permutations = 1000, R2scope = T)
+summary(ordimem3)
+anova_ordimem3 <- ordimem3$anova
+anova_ordimem3 #R2.adj is cumulative 
+#write.csv(anova_ordimem3, "./081120_selection/0222_RDAtables/0413_ordir2_envRDA_cond_spacedmem3.csv")
+
+
+
+#Not used
+#Selected environmental variables with forward selection using RDA conditioned on space all MEM variables
+clim.sel <- pred[,-3] #significant in forward.sel, all but Pdq
+
+env_rda_cond <- rda(gt.ld, clim.sel, dbmem_all)
+anova(env_rda_cond)
+
+env_rda <- rda(gt.ld, clim.sel)
+anova(env_rda)
+
+pRDAclimfull <- rda(formula = gt.ld ~ ., data = clim.sel)
+RsquareAdj(pRDAclimfull)
+anova(pRDAclimfull)
+
+pRDAclim.no.space <- rda(formula = gt.ld ~ . + Condition(dbmem_all), data = clim.sel)
+RsquareAdj(pRDAclim.no.space)
+anova(pRDAclim.no.space)
+
+
+```
+
+# 4. Variance partitioning, wiht partial RDA (pRDA)
+
+Modified from: "RDA applications in landscape genomics" "Thibaut Capblancq & Brenna Forester"
+
+Variance partitioning with partial RDA (pRDA) can identify the contribution of different factors to reducing gene flow and triggering genetic divergence among populations. We apply pRDA-based variance partitioning to decompose the contribution of climate, neutral population structure, and geography (spatial strucutre with dbMEMs) in explaining genetic variation. We used three sets of variables: 1) the four selected bioclimate variables (clim ‘pred’); 2) three proxies of neutral genetic structure (population scores along the first three axes of a genetic PCA conducted on the 7,331 (ld-filtered) or 11,421 (non-ld filtered) putative neutral loci; struct ‘mp.pca.scores’); and 3) the significant spatial variable (space MEM3) to characterize geographic variation (‘dbmem_3’).  
+ 
+Create a dataset with selected varaibles, including climatic variables, PCA scores and spatial (MEM3) variables
+ 
+```{r, message=FALSE, warning=FALSE, results='hide', eval=TRUE}
+
+## Table gathering all variables
+#Variables.nold <- data.frame(mp.pca.scores, pred, dbmem_3)
+Variables <- data.frame(mp.pca.ld.scores, pred, dbmem_3)
+Variables[1:5,]
+dim(Variables)
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Full model
+pRDAfull <- rda(formula = gt.ld ~ Pwq + PScv + Pdq + mTwq + TSsd + dbmem_3 + PC1 + PC2 + PC3, data = Variables)
+RsquareAdj(pRDAfull)
+aovpRDAfull <- anova(pRDAfull)
+aovpRDAfull
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Pure climate model
+pRDAclim <- rda(formula = gt.ld ~ Pwq + PScv + Pdq + mTwq + TSsd + Condition(dbmem_3 + PC1 + PC2 + PC3),  Variables)
+RsquareAdj(pRDAclim)
+aovpRDAclim <- anova(pRDAclim)
+aovpRDAclim
+summary(pRDAclim)
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Pure neutral population structure model  
+pRDAstruct <- rda(formula = gt.ld ~ PC1 + PC2 + PC3 + Condition(dbmem_3 + Pwq + PScv + Pdq + mTwq + TSsd),  Variables)
+RsquareAdj(pRDAstruct)
+aovpRDAstruct <- anova(pRDAstruct)
+aovpRDAstruct
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+##Pure geography model 
+pRDAgeog <- rda(formula = gt.ld ~ dbmem_3 + Condition(Pwq + PScv + Pdq + mTwq + TSsd + PC1 + PC2 + PC3),  Variables)
+RsquareAdj(pRDAgeog)
+aovpRDAgeog <- anova(pRDAgeog)
+aovpRDAgeog
+```
+
+#Variance partitioning including only the four climatic variables as selected by forward selection
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Full model
+pRDAfull2 <- rda(formula = gt.ld ~ Pwq + PScv + mTwq + TSsd + dbmem_3 + PC1 + PC2 + PC3, data = Variables)
+RsquareAdj(pRDAfull2)
+aovpRDAfull2 <- anova(pRDAfull2)
+aovpRDAfull2
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Pure climate model
+pRDAclim2 <- rda(formula = gt.ld ~ Pwq + PScv + mTwq + TSsd + Condition(dbmem_3 + PC1 + PC2 + PC3),  Variables)
+RsquareAdj(pRDAclim2)
+aovpRDAclim2 <- anova(pRDAclim2)
+aovpRDAclim2
+summary(pRDAclim2)
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Pure neutral population structure model  
+pRDAstruct2 <- rda(formula = gt.ld ~ PC1 + PC2 + PC3 + Condition(dbmem_3 + Pwq + PScv + mTwq + TSsd),  Variables)
+RsquareAdj(pRDAstruct2)
+aovpRDAstruct2 <- anova(pRDAstruct2)
+aovpRDAstruct2
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+##Pure geography model 
+pRDAgeog2 <- rda(formula = gt.ld ~ dbmem_3 + Condition(Pwq + PScv + mTwq + TSsd + PC1 + PC2 + PC3),  Variables)
+RsquareAdj(pRDAgeog2)
+aovpRDAgeog2 <- anova(pRDAgeog2)
+aovpRDAgeog2
+```
+
+#Variance partitioning including only the three climatic variables as selected by forward selection removing space
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Full model
+pRDAfull3 <- rda(formula = gt.ld ~ Pwq + mTwq + Pdq + dbmem_3 + PC1 + PC2 + PC3, data = Variables)
+RsquareAdj(pRDAfull3)
+aovpRDAfull3 <- anova(pRDAfull3)
+aovpRDAfull3
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Pure climate model
+pRDAclim3 <- rda(formula = gt.ld ~ Pwq + mTwq + Pdq + Condition(dbmem_3 + PC1 + PC2 + PC3),  Variables)
+RsquareAdj(pRDAclim3)
+aovpRDAclim3 <- anova(pRDAclim3)
+aovpRDAclim3
+summary(pRDAclim3)
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+## Pure neutral population structure model  
+pRDAstruct3 <- rda(formula = gt.ld ~ PC1 + PC2 + PC3 + Condition(dbmem_3 + Pwq + mTwq + Pdq),  Variables)
+RsquareAdj(pRDAstruct3)
+aovpRDAstruct3 <- anova(pRDAstruct3)
+aovpRDAstruct3
+```
+
+```{r, message=TRUE, echo=TRUE, eval=TRUE}
+##Pure geography model 
+pRDAgeog3 <- rda(formula = gt.ld ~ dbmem_3 + Condition(Pwq + mTwq + Pdq + PC1 + PC2 + PC3),  Variables)
+RsquareAdj(pRDAgeog3)
+aovpRDAgeog3 <- anova(pRDAgeog3)
+aovpRDAgeog3
+```
+
+
+#Run the RDA
+The code to run the RDA is simple. However, as noted previously, we highly recommend Borcard et al. (2011) for details on the implementation and interpretation of RDA models and the objects created by vegan. RDA runs relatively quickly on most data sets, however on a very large data set it can take 15-20 minutes, depending on the computer.
+
+Note: if your predictors include any factors, you’ll need to write out the formula in the rda call if you want to include a significance test of the constrained axis (code shown below). Since we are not using any factors in this analysis, we can use the shorthand formula gen.imp ~ .
+
+##RDA using the four climatic variables as identified in forward variable selection
+Accounting for population structure using the first three PCs as conditioning variables
+
+Creating the subsets for us and colpr of PCs and climate variables
+```{r}
+mp.pca.ld.scores.us <- mp.pca.ld.scores[rownames(mp.pca.ld.scores) %in% env.us[,5], ]
+mp.pca.ld.scores.colpr <- mp.pca.ld.scores[rownames(mp.pca.ld.scores) %in% env.colpr[,5], ]
+
+# Confirm that genotypes and environmental data are in the same order
+#"pred.us" is a subset of columns in "env.us", so I'll use it to confirm the order
+identical(rownames(mp.pca.ld.scores.us), env.us[,5]) 
+identical(rownames(mp.pca.ld.scores.colpr), env.colpr[,5]) 
+
+#Join in a data frame only with US and COLPR isolates
+Variables.us <- data.frame(mp.pca.ld.scores.us, pred.us)
+Variables.us[1:5,]
+dim(Variables.us)
+
+Variables.colpr <- data.frame(mp.pca.ld.scores.colpr, pred.colpr)
+Variables.colpr[1:5,]
+dim(Variables.colpr)
+```
+
+
+
+```{r}
+library(vegan)
+library(conflicted)
+mp.rda.ld <- rda(formula = gt.ld ~ Pwq + PScv + mTwq + TSsd + Condition(PC1 + PC2 + PC3),  Variables) 
+mp.rda.ld
+#mp.rda.ld <- mp.rda
+
+mp.rda <- rda(formula = gt.indiv ~ Pwq + PScv + mTwq + TSsd + Condition(PC1 + PC2 + PC3),  Variables) 
+mp.rda
+
+
+us.rda <- rda(gt.ld.us ~ Pwq + PScv + mTwq + TSsd + Condition(PC1 + PC2 + PC3),  Variables.us) 
+us.rda
+
+colpr.rda <- rda(gt.ld.colpr ~ Pwq + PScv + mTwq + TSsd + Condition(PC1 + PC2 + PC3),  Variables.colpr)
+colpr.rda
+```
+First, note that we will have as many constrained (“RDA”) axes as we have predictors in the model. All residual variance is then modeled by PCA (the unconstrained “PC” axes). The proportion of the variance explained by the environmental predictors is given under the “Proportion” column for “Constrained”; this is equivalent to the R2 of a multiple regression. Just like in multiple regression, this R2 will be biased and should be adjusted based on the number of predictors. We can calculate the adjusted R2 using:
+
+```{r}
+RsquareAdj(mp.rda)
+RsquareAdj(us.rda)
+RsquareAdj(colpr.rda)
+```
+Our constrained ordination explains about 27% of the variation; this low explanatory power is not surprising given that we expect that most of the SNPs in our dataset will not show a relationship with the environmental predictors (e.g., most SNPs will be neutral).
+
+The eigenvalues for the constrained axes reflect the variance explained by each canonical axis:
+
+```{r}
+summary(eigenvals(mp.rda, model = "constrained"))
+screeplot(mp.rda, main="Eigenvalues of constrained axes all isolates")
+
+summary(eigenvals(us.rda, model = "constrained"))
+screeplot(us.rda, main="Eigenvalues of constrained axes US isolates")
+
+summary(eigenvals(colpr.rda, model = "constrained"))
+screeplot(colpr.rda, main="Eigenvalues of constrained axes COLPR isolates")
+```
+
+Here, we can see that the first three constrained axes explain most of the variance. The screeplot provides an informal (and quick) way to determine how many constrained axes to include when we search for candidate SNPs (below). We could start by investigating RDA axes that explain the most variance (excluding those after the “drop off” point in the screeplot.)
+
+Now let’s check our RDA model for significance using formal tests. We can assess both the full model and each constrained axis using F-statistics (Legendre et al, 2010). The null hypothesis is that no linear relationship exists between the SNP data and the environmental predictors. See ?anova.cca for more details and options.
+
+```{r}
+library(doParallel)
+detectCores()#4
+detectCores(logical = F)#2
+
+Sys.getenv("MC_CORES") 
+Sys.setenv("MC_CORES"=4L) 
+options("mc.cores") 
+
+library(parallel)
+options("mc.cores"=4L) 
+options("mc.cores") 
+
+signif.full <- anova.cca(mp.rda, parallel=getOption("mc.cores")) # default is permutation=999
+signif.full
+
+signif.full.us <- anova.cca(us.rda, parallel=getOption("mc.cores")) # default is permutation=999
+signif.full.us
+
+signif.full.colpr <- anova.cca(colpr.rda, parallel=getOption("mc.cores")) # default is permutation=999
+signif.full.colpr
+```
+The full model is significant, but that doesn’t tell us much. We can check each constrained axis for significance using the code below. For this test, each constrained axis is tested using all previous constrained axes as conditions. See ?anova.cca and Legendre et al. (2010) for details. The purpose here is to determine which constrained axes we should investigate for candidate loci.
+
+This analysis is time intensive (taking up to a few hours for the full wolf data set), so we will not run the code here. If we did run it, we would find that the first three constrained axes are significant (p = 0.001); constrained axis 4 has a p-value of 0.080, while axes 5-8 have p-values > 0.850. This corresponds with our evaluation of the screeplot, above.
+
+```{r}
+signif.axis <- anova.cca(mp.rda, by="axis", parallel=getOption("mc.cores"))
+signif.axis
+```
+
+
+Finally, vegan has a simple function for checking Variance Inflation Factors for the predictor variables used in the model:
+```{r}
+vif.cca(mp.rda)
+vif.cca(us.rda)
+vif.cca(colpr.rda)
+```
+
+All values are below 10, and most are below 5, which indicates that multicollinearity among these predictors shouldn’t be a problem for the model. We could remove one of the temperature variables (AMT or MDR) if we were concerned about these higher VIF values (Zuur et al., 2010).
+
+
+#Plot the RDA
+We’ll start with simple triplots from vegan. Here we’ll use scaling=3 (also known as “symmetrical scaling”) for the ordination plots. This scales the SNP and individual scores by the square root of the eigenvalues. See Borcard et al. (2011) or the vegan help for more information on scaling in RDA plots.
+
+```{r}
+install.packages("vegan")
+install.packages("ade4")
+devtools::install_github("vegan")
+#unloadNamespace("agricolae")
+#unloadNamespace("klaR")
+library(agricolae)
+library(vegan) #plot function in vegan sometimes conflicts with klaR
+library(ade4)
+library(conflicted)
+conflicted::conflict_prefer(name = "plot", winner = "vegan")#prefer vegan over any other package
+loadNamespace("vegan")
+
+plot(mp.rda, scaling=3)          # default is axes 1 and 2
+plot(mp.rda, choices = c(1, 3), scaling=3)  # axes 1 and 3
+
+plot(us.rda, scaling=3)          # default is axes 1 and 2
+plot(us.rda, choices = c(1, 3), scaling=3)  # axes 1 and 3
+
+plot(colpr.rda, scaling=3)          # default is axes 1 and 2
+plot(colpr.rda, choices = c(1, 3), scaling=3)  # axes 1 and 3
+```
+
+Here, the SNPs are in red (in the center of each plot), and the individuals are the black circles. The blue vectors are the environmental predictors. The relative arrangement of these items in the ordination space reflects their relationship with the ordination axes, which are linear combinations of the predictor variables.
+
+Let’s make some more informative plots. We’ll color the individual points based on their ecotype, which we can find in the env data set.
+
+```{r}
+levels(Variables$pop) 
+cluster <- Variables$pop
+library(scales)
+library(RColorBrewer)
+
+#ordered colors as in levels(Variables$pop) "US2"    "US1A"   "US1B"   "COLPR2" "COLPR1"
+ord.col5.lev <- c("#6A3D9ACC", "#1F78B4CC","#569EA4", "#FDA440CC", "#F06C45CC")
+show_col(ord.col5.lev)
+bg <- ord.col5.lev
+
+levels(Variables.us$pop)#levels show all, not what is just in Variables.us
+cluster.us <- Variables.us$pop
+bg.us <- ord.col5.lev[1:3]
+
+levels(Variables.colpr$pop)#levels show all, not what is just in Variables.colpr
+cluster.colpr <- Variables.colpr$pop
+bg.colpr <- ord.col5.lev[4:5]
+
+```
+
+This time, we’ll set the plots up and add each component in separately:
+
+```{r}
+# axes 1 & 2
+png("081120_selection/0422_RDA_figs/RDA_clim_cond_sc3_6x5.png", width =6, height = 5, units="in", res=600)
+plot(mp.rda, type="n", scaling=3)
+#points(mp.rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3)           # the SNPs
+points(mp.rda, display="sites", pch=21, cex=1.3, col="black", scaling=3, bg=bg[cluster]) # the isolates
+text(mp.rda, scaling=3, display="bp", col="black", cex=1, lwd=2)                           # the predictors
+#legend("bottomright", legend=levels(cluster), bty="n", col="black", pch=21, cex=0.6, pt.bg=bg)
+dev.off()
+
+# axes 1 & 3
+plot(mp.rda, type="n", scaling=3, choices=c(1,3))
+#points(mp.rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3, choices=c(1,3))
+points(mp.rda, display="sites", pch=21, cex=1.3, col="black", scaling=3, bg=bg[cluster], choices=c(1,3)) # the isolates
+text(mp.rda, scaling=3, display="bp", col="black", cex=1, choices=c(1,3))                           # the predictors
+legend("bottomright", legend=levels(cluster), bty="n", col="gray32", pch=21, cex=0.6, pt.bg=bg)
+
+```
+
+# RDA plot conditioned on population structure
+```{r}
+vec_col = scales::alpha("blue",0.6)
+#order of levels changed when NA in genetic cluster for IN129-4 and Mph40
+#ordered colors as in levels(Variables$pop) "US2"    "US1A"   "COLPR2" "US1B"   "COLPR1"
+ord.col5.lev2 <- c("#6A3D9ACC", "#1F78B4CC", "#FDA440CC", "#569EA4", "#F06C45CC")
+show_col(ord.col5.lev2)
+bg2 <- ord.col5.lev2
+
+
+library(vegan)
+png("081120_selection/0422_RDA_figs/RDA_clim_cond_popstr_scores_7X6_grayadmx.png", width = 7, height = 6, units="in", res=600)
+#pdf("0422_RDA_figs/RDA_clim_cond_popstr_scores.pdf", width = 8, height = 7)
+par(mar=c(6,6,6,6))
+plot(scores(mp.rda.ld, display='wa'), type="none", scaling=1, cex.axis=1.2, cex.lab=1.2, xlab="RDA1 isolate score", ylab = "RDA2 isolate score",las=1)
+points(scores(mp.rda, display='wa'), display="sites", pch=21, cex=1.3, col="black", bg=bg2[cluster], scaling=1)
+abline(0,0, lty=2, col="gray50")
+abline(v=0, lty=2, col="gray50")
+labels <- c('Prec wq','Prec Seas','Mean Temp wq','Temp Seas')
+vectors <- scores(mp.rda, display='bp')
+
+#arrowcoord <- locator() #to get coordinates from the plot interactively
+#arrowcoord
+#arrow.x <- mean(arrowcoord$x/vectors[,1]) #12, factor for multiplication to create climatic corr axis
+#arrow.y <- mean(arrowcoord$y/vectors[,2])#12
+
+text(mp.rda, scaling=2, display="bp", col="black", cex=1, lwd=2)#here scaling 2 bc we want the original vectors, and climatic axes will be made based on those scores  
+#axis(side=3, at = pretty(range(vectors[,1]*12),n=4), labels = pretty(range(vectors[,1]*12,n=4)/12), cex.axis=1.2, col=vec_col, col.ticks=vec_col,col.axis=vec_col)
+
+axis(side=3, at = c(-6,-3,0,3,6), labels = c(-0.5,-0.25,0.0,0.25,0.5) , cex.axis=1.2, col=vec_col, col.ticks=vec_col,col.axis=vec_col)
+mtext('Clim Correlation RDA1', side=3, cex=1.2, adj=0.33, padj=-3.7, col=vec_col, font=1)
+
+axis(side=4, at = c(-9,-6,-3,0,3,6), labels = c(-0.75,-0.5,-0.25,0.0,0.25,0.5), cex.axis=1.2, las=1,col=vec_col, col.ticks=vec_col,col.axis=vec_col)
+mtext('Clim Correlation RDA2', side=4, cex=1.2, adj=0.55, padj=5.5, col=vec_col,font=1)
+dev.off()
+```
+
+#US
+```{r}
+# axes 1 & 2
+plot(us.rda, type="n", scaling=3)
+#points(us.rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3)           # the SNPs
+points(us.rda, display="sites", pch=21, cex=1.3, col="black", scaling=3, bg=bg.us[cluster.us]) # the isolates
+text(us.rda, scaling=3, display="bp", col="black", cex=1)                           # the predictors
+legend("bottomleft", legend=levels(cluster.us)[1:3], bty="n", col="black", pch=21, cex=1, pt.bg=bg.us)
+
+# axes 1 & 3
+plot(us.rda, type="n", scaling=3, choices=c(1,3))
+#points(us.rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3, choices=c(1,3))
+points(us.rda, display="sites", pch=21, cex=1.3, col="black", scaling=3, bg=bg[cluster.us], choices=c(1,3))
+text(us.rda, scaling=3, display="bp", col="black", cex=1, choices=c(1,3))
+legend("bottomleft", legend=levels(cluster.us)[1:3], bty="n", col="black", pch=21, cex=1, pt.bg=bg.us)
+```
+
+#COLPR
+```{r}
+# axes 1 & 2
+plot(colpr.rda, type="n", scaling=3)
+#points(colpr.rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3)           # the SNPs
+points(colpr.rda, display="sites", pch=21, cex=1.3, col="black", scaling=3, bg=bg[cluster.colpr]) # the isolates
+text(colpr.rda, scaling=3, display="bp", col="black", cex=1)                           # the predictors
+legend("bottomright", legend=levels(cluster.colpr)[4:5], bty="n", col="black", pch=21, cex=1, pt.bg=bg.colpr)
+
+# axes 1 & 3
+plot(colpr.rda, type="n", scaling=3, choices=c(1,3))
+#points(colpr.rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3, choices=c(1,3))
+points(colpr.rda, display="sites", pch=21, cex=1.3, col="black", scaling=3, bg=bg[cluster.colpr], choices=c(1,3))
+text(colpr.rda, scaling=3, display="bp", col="black", cex=1, choices=c(1,3))
+legend("topleft", legend=levels(cluster.colpr)[4:5], bty="n", col="black", pch=21, cex=1, pt.bg=bg.colpr)
+```
+
+# RDA not conditioned 
+```{r}
+mp.rda.uncond.ld <- rda(formula = gt.ld ~ Pwq + PScv + mTwq + TSsd,  Variables) 
+mp.rda.uncond.ld
+#mp.rda.uncond.ld <- mp.rda.uncond
+
+mp.rda.uncond <- rda(formula = gt.indiv ~ Pwq + PScv + mTwq + TSsd,  Variables) 
+mp.rda.uncond
+
+
+RsquareAdj(mp.rda.uncond.ld)
+
+summary(eigenvals(mp.rda.uncond.ld, model = "constrained"))
+screeplot(mp.rda.uncond.ld, main="Eigenvalues of constrained axes all isolates")
+
+signif.full.unc <- anova.cca(mp.rda.uncond.ld, parallel=getOption("mc.cores")) # default is permutation=999
+signif.full.unc
+```
+
+# RDA plot not conditioned
+
+
+```{r}
+# axes 1 & 2
+library(vegan)
+png("081120_selection/0422_RDA_figs/RDA_clim_uncond_sc3_txt2.png", width =6, height = 5, units="in", res=600)
+plot(mp.rda.uncond.ld, type="n", scaling=3)
+#points(mp.rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3)           # the SNPs
+points(mp.rda.uncond.ld, display="sites", pch=21, cex=1.3, col="black", scaling=3, bg=bg[cluster]) # the isolates
+text(mp.rda.uncond.ld, scaling=2, display="bp", col="black", cex=1, lwd=2)                           # the predictors
+#legend("bottomright", legend=levels(cluster), bty="n", col="black", pch=21, cex=0.6, pt.bg=bg)
+dev.off()
+
+```
+
+```{r}
+vec_col = scales::alpha("blue",0.6)
+#order of levels changed when NA in genetic cluster for IN129-4 and Mph40
+#ordered colors as in levels(Variables$pop) "US2"    "US1A"   "COLPR2" "US1B"   "COLPR1"
+ord.col5.lev2 <- c("#6A3D9ACC", "#1F78B4CC", "#FDA440CC", "#569EA4", "#F06C45CC")
+show_col(ord.col5.lev2)
+bg2 <- ord.col5.lev2
+
+
+png("081120_selection/0422_RDA_figs/RDA_clim_uncond_scores_7x6_grayadmx.png", width = 7, height = 6, units="in", res=600)
+#pdf("0422_RDA_figs/RDA_clim_cond_popstr_scores.pdf", width = 8, height = 7)
+
+par(mar=c(6,6,6,6))
+plot(scores(mp.rda.uncond.ld, display='wa'), type="none", scaling=1, cex.axis=1.2, cex.lab=1.2, xlab="RDA1 isolate score", ylab = "RDA2 isolate score",las=1)
+points(scores(mp.rda.uncond.ld, display='wa'), display="sites", pch=21, cex=1.3, col="black", bg=bg2[cluster], scaling=1, na.value = "grey60")
+
+abline(0,0, lty=2, col="gray50")
+abline(v=0, lty=2, col="gray50")
+#labels <- c('Prec wq','Prec Seas','Mean Temp wq','Temp Seas')
+labels <- c('Pwq','PScv','mTwq','TSsd')
+vectors <- scores(mp.rda.uncond.ld, display='bp')
+t_vectors <- vectors
+
+t_vectors[1,1] <- t_vectors[1,1] +0.1
+t_vectors[1,2] <- t_vectors[1,2] +0.1
+t_vectors[2,1] <- t_vectors[2,1] +0.2
+t_vectors[2,2] <- t_vectors[2,2] -0.2
+t_vectors[3,1] <- t_vectors[3,1] +0.2
+t_vectors[3,2] <- t_vectors[3,2] +0.05
+t_vectors[4,1] <- t_vectors[4,1] +0.2
+t_vectors[4,2] <- t_vectors[4,2] +0.3
+
+#arrowcoord <- locator() #to get coordinates from the plot interactively
+#arrowcoord
+#arrow.x.unc <- mean(arrowcoord$x/vectors[,1]) #factor for multiplication to create climatic corr axis
+#arrow.y.unc <- mean(arrowcoord$y/vectors[,2])
+
+text(mp.rda.uncond.ld, scaling=2, display="bp", col="black", cex=1, lwd=2, labels =NULL)  
+text(t_vectors[,1]*1.4, t_vectors[,2]*1.4, labels = labels)
+#axis(side=3, at = pretty(range(vectors[,1]*1.4),n=4), labels = pretty(range(vectors[,1]*1.4),n=4)/1.4, cex.axis=1.2, col=vec_col, col.ticks=vec_col,col.axis=vec_col)
+axis(side=3, at = c(-1.4, -0.7,  0.0,  0.7,  1.4), labels = c(-1, -0.5,  0,  0.5,  1), cex.axis=1.2, col=vec_col, col.ticks=vec_col,col.axis=vec_col)
+mtext('Clim Correlation RDA1', side=3, cex=1.2, adj=0.1, padj=-3.7, col=vec_col, font=1)
+axis(side=4, at = c(-1.4, -0.7,  0.0,  0.7,  1.4), labels = c(-1, -0.5,  0,  0.5,  1) , cex.axis=1.2, las=1,col=vec_col, col.ticks=vec_col,col.axis=vec_col)
+mtext('Clim Correlation RDA2', side=4, cex=1.2, padj=4, col=vec_col,font=1)
+dev.off()
+```
+
+
+#Identify candidate SNPs putatively involved in local adaptation
+
+```{r}
+library(pegas)
+library(ggplot2)
+library(raster)
+library(rgdal)
+library(LEA)
+library(RColorBrewer)
+library(ggpubr)
+library(qvalue)
+library(robust)
+library(WMDB)
+library(ggVennDiagram)
+library(cowplot)
+library(corrplot)
+library(rgeos)
+#library(bigutilsr)
+```
+
+
+#Identify candidate SNPs involved in local adaptation
+We’ll use the loadings of the SNPs in the ordination space to determine which SNPs are candidates for local adaptation. The SNP loadings are stored as species in the RDA object. We’ll extract the SNP loadings from the three significant constrained axes:
+
+
+```{r}
+# No LD-filtered
+load.rda <- scores(mp.rda, choices=c(1:3), display="species")  # Species (SNPs) scores for the first three constrained axes
+
+#LD-filtered
+load.rda.ld <- scores(mp.rda.ld, choices=c(1:3), display="species")
+```
+
+
+If we look at histograms of the loadings on each RDA axis, we can see their (relatively normal) distributions. SNPs loading at the center of the distribution are not showing a relationship with the environmental predictors; those loading in the tails are, and are more likely to be under selection as a function of those predictors (or some other predictor correlated with them).
+
+```{r}
+hist(load.rda[,1], main="Loadings on RDA1")
+hist(load.rda[,2], main="Loadings on RDA2")
+hist(load.rda[,3], main="Loadings on RDA3")
+
+hist(load.rda.ld[,1], main="Loadings on RDA1")
+hist(load.rda.ld[,2], main="Loadings on RDA2")
+hist(load.rda.ld[,3], main="Loadings on RDA3")
+```
+
+I’ve written a simple function to identify SNPs that load in the tails of these distributions. We’ll start with a 3 standard deviation cutoff (two-tailed p-value = 0.0027). As with all cutoffs, this can be modified to reflect the goals of the analysis and our tolerance for true positives vs. false positives. For example, if you needed to be very conservative and only identify those loci under very strong selection (i.e., minimize false positive rates), you could increase the number of standard deviations to 3.5 (two-tailed p-value = 0.0005). This would also increase the false negative rate. If you were less concerned with false positives, and more concerned with identifying as many potential candidate loci as possible (including those that may be under weaker selection), you might choose a 2.5 standard deviation cutoff (two-tailed p-value = 0.012).
+
+I define the function here as outliers, where x is the vector of loadings and z is the number of standard deviations to use:
+```{r}
+outliers <- function(x,z){
+  lims <- mean(x) + c(-1, 1) * z * sd(x)     # find loadings +/-z sd from mean loading     
+  x[x < lims[1] | x > lims[2]]               # locus names in these tails
+}
+```
+
+
+Checking normality on axis distribution 
+```{r}
+#install.packages("ggpubr")
+library("dplyr")
+library("ggpubr")
+
+ggdensity(load.rda[,1],
+          main = "Density plot of loadings on RDA1",
+          xlab = "Loadings on RDA1")
+ggqqplot(load.rda[,1])
+
+
+ggdensity(load.rda[,2],
+          main = "Density plot of loadings on RDA2",
+          xlab = "Loadings on RDA1")
+ggqqplot(load.rda[,2])
+
+ggdensity(load.rda[,3],
+          main = "Density plot of loadings on RDA3",
+          xlab = "Loadings on RDA1")
+ggqqplot(load.rda[,3])
+
+```
+
+
+Now let’s apply it to each significant constrained axis:
+# Outliers in RDA conditioned to pop structure
+
+## No LD-filtered
+```{r}
+#No LD-filtered
+cand1 <- outliers(load.rda[,1],4) 
+cand2 <- outliers(load.rda[,2],4)
+cand3 <- outliers(load.rda[,3],4)
+
+length(cand1) #25 with 4 sd
+length(cand2) #30 with 4 sd
+length(cand3) #20 with 4 sd
+
+
+ncand <- length(cand1) + length(cand2) + length(cand3)
+ncand #75
+
+#Next, we’ll organize our results by making one data frame with the axis, SNP name, loading, & correlation with each predictor:
+
+#No LD-filtered
+cand1 <- cbind.data.frame(rep(1,times=length(cand1)), names(cand1), unname(cand1))
+cand2 <- cbind.data.frame(rep(2,times=length(cand2)), names(cand2), unname(cand2))
+cand3 <- cbind.data.frame(rep(3,times=length(cand3)), names(cand3), unname(cand3))
+
+colnames(cand1) <- colnames(cand2) <- colnames(cand3) <- c("axis","snp","loading")
+
+cand <- rbind(cand1, cand2, cand3)
+cand$snp <- as.character(cand$snp)
+
+#Let’s add in the correlations of each candidate SNP with the eight environmental predictors:
+
+foo <- matrix(nrow=(ncand), ncol=4)  # 4 columns for 4 predictors
+colnames(foo) <- c("Pwq","PScv","mTwq","TSsd")
+for (i in 1:length(cand$snp)) {
+  nam <- cand[i,2]
+  snp.gen <- gt.indiv[,nam]
+  foo[i,] <- apply(clim.sel,2,function(x) cor(x,snp.gen))
+}
+
+cand <- cbind.data.frame(cand,foo)  
+head(cand)
+```
+
+#Investigate the candidates
+Looking for duplicate detections
+```{r}
+length(cand$snp[duplicated(cand$snp)])  # 0 duplicate detections
+
+foo <- cbind(cand$axis, duplicated(cand$snp)) 
+table(foo[foo[,1]==1,2]) # no duplicates on axis 1
+## 
+##   
+## 
+table(foo[foo[,1]==2,2]) #  no duplicates on axis 2
+## 
+##  0   
+## 
+table(foo[foo[,1]==3,2]) # no duplicates on axis 3
+## 
+##  0 
+## 21
+cand <- cand[!duplicated(cand$snp),] # remove duplicate detections
+cand
+#write.csv(cand, "./081120_selection/0422_outliersRDAcond_ld_3sd.csv")
+#write.csv(cand, "./081120_selection/0422_outliersRDAcond_nold_3sd.csv")
+
+#Next, we’ll see which of the predictors each candidate SNP is most strongly correlated with:
+
+for (i in 1:length(cand$snp)) {
+  bar <- cand[i,]
+  cand[i,8] <- names(which.max(abs(bar[4:7]))) # gives the variable
+  cand[i,9] <- max(abs(bar[4:7]))              # gives the correlation
+}
+
+colnames(cand)[8] <- "predictor"
+colnames(cand)[9] <- "correlation"
+
+table(cand$predictor) 
+
+#write.csv(cand, "./081120_selection/0422_outliersRDAcond_nold_3sd_cor.csv")
+#write.csv(cand, "./081120_selection/0422_outliersRDAcond_nold_4sd_cor.csv")
+
+#0422 
+
+#gt.indiv (no ld)
+#mTwq PScv TSsd 
+#  10   21   44 
+```
+
+
+
+## LD-filtered
+
+```{r}
+
+cand1ld <- outliers(load.rda.ld[,1],3)
+cand2ld <- outliers(load.rda.ld[,2],3)
+cand3ld <- outliers(load.rda.ld[,3],3)
+
+length(cand1ld) #15 with 3 sd
+length(cand2ld) #21 with 3 sd
+length(cand3ld) #13 with 3 sd
+
+
+ncandld <- length(cand1ld) + length(cand2ld) + length(cand3ld)
+ncandld #49
+
+cand1ld <- cbind.data.frame(rep(1,times=length(cand1ld)), names(cand1ld), unname(cand1ld))
+cand2ld <- cbind.data.frame(rep(2,times=length(cand2ld)), names(cand2ld), unname(cand2ld))
+cand3ld <- cbind.data.frame(rep(3,times=length(cand3ld)), names(cand3ld), unname(cand3ld))
+
+colnames(cand1ld) <- colnames(cand2ld) <- colnames(cand3ld) <- c("axis","snp","loading")
+
+candld <- rbind(cand1ld, cand2ld, cand3ld)
+candld$snp <- as.character(candld$snp)
+
+#Let’s add in the correlations of each candidate SNP with the eight environmental predictors:
+
+foo <- matrix(nrow=(ncandld), ncol=4)  # 4 columns for 4 predictors
+colnames(foo) <- c("Pwq","PScv","mTwq","TSsd")
+for (i in 1:length(candld$snp)) {
+  nam <- candld[i,2]
+  snp.gen <- gt.indiv[,nam]
+  foo[i,] <- apply(clim.sel,2,function(x) cor(x,snp.gen))
+}
+
+candld <- cbind.data.frame(candld,foo)  
+head(candld)
+
+length(candld$snp[duplicated(candld$snp)])  # 0 duplicate detections
+
+#Next, we’ll see which of the predictors each candidate SNP is most strongly correlated with:
+
+for (i in 1:length(candld$snp)) {
+  bar <- candld[i,]
+  candld[i,8] <- names(which.max(abs(bar[4:7]))) # gives the variable
+  candld[i,9] <- max(abs(bar[4:7]))              # gives the correlation
+}
+
+colnames(candld)[8] <- "predictor"
+colnames(candld)[9] <- "correlation"
+
+table(candld$predictor) 
+#0422 
+#gt.ld
+#mTwq PScv  Pwq TSsd 
+#   3   15    1   30 
+
+#write.csv(candld, "./081120_selection/0422_outliersRDAcond_ld_3sd_cor.csv")
+```
+
+# Compare outliers detected by pRDA all snps and pRDA unlinked snps
+
+```{r}
+## For all the outliers
+list_outliers_pRDA_link <- list(pRDA_unlink = as.character(candld$snp), pRDA_link = as.character(cand$snp))
+venn.prda <- ggVennDiagram(list_outliers_pRDA_link, category.names = c("Partial RDA - Unlinked SNPs", "Partial RDA - All SNPs"), lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + guides(fill = "none") + theme(text = element_text(size=16))
+venn.prda
+#ggsave(plot = venn.prda, "./081120_selection/0422_RDA_figs/0422_venn_prda_link.png", dpi = 600, units = "in", height = 4, width = 5)
+common_outliers_pRDA <- Reduce(intersect, list_outliers_pRDA_link)
+common_outliers_pRDA
+#[1] "scaffold_13_111451" "scaffold_42_203393" "scaffold_44_156076" "scaffold_48_217394" "scaffold_1_3049711"
+# [6] "scaffold_2_523738"  "scaffold_6_1522882" "scaffold_9_654713"  "scaffold_12_462369" "scaffold_21_52404" 
+#[11] "scaffold_23_382823" "scaffold_25_125545" "scaffold_28_275982" "scaffold_29_158130" "scaffold_71_166465"
+#[16] "scaffold_87_1928"   "scaffold_87_2593"   "scaffold_7_1460003" "scaffold_19_550409" "scaffold_23_382747"
+```
+Based on the strongest correlations, most SNPs are associated with two precipitation variables (precipitation of driest quarter and precipitation seasonality), with mean temperature of warmest quarter accounting for the second highest number of detections. 
+
+Note that, in some cases, correlations may be strong for multiple variables (depending on collinearity among predictors). It may be useful to consider how candidate SNPs are correlated with multiple predictors. We could, for example, look at the cand object and investigate correlations with predictors other than the predictor with the highest correlation coefficient. However, for this analysis we will focus on the strongest correlations of each SNP with one predictor.
+
+#Plot the SNPs
+Let’s look at RDA plots again, but this time focus in on the SNPs in the ordination space. We’ll color code the SNPs based on the predictor variable that they are most strongly correlated with. There is a lot of code to set this up, which you can mostly ignore.
+
+```{r}
+sel <- cand$snp
+levels(cand$snp)
+
+env <- cand$predictor
+env[env=="Pwq"] <- '#1f78b4'
+env[env=="PScv"] <- '#a6cee3'
+env[env=="Pdq"] <- '#6a3d9a'
+env[env=="mTwq"] <- '#e31a1c'
+env[env=="TSsd"] <- '#33a02c'
+
+
+# color by predictor:
+col.pred <- rownames(mp.rda$CCA$v) # pull the SNP names
+
+for (i in 1:length(sel)) {           # color code candidate SNPs
+  foo <- match(sel[i],col.pred)
+  col.pred[foo] <- env[i]
+}
+
+col.pred[grep("sca",col.pred)] <- '#f1eef6' # non-candidate SNPs #the SNPs names are scaffold, so in grep "sca"
+empty <- col.pred
+empty[grep("#f1eef6",empty)] <- rgb(0,1,0, alpha=0) # transparent
+empty.outline <- ifelse(empty=="#00FF0000","#00FF0000","gray32")
+bg <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99','#b2df8a')
+
+
+
+#Now we’re ready to plot the SNPs:
+
+# axes 1 & 2
+plot(mp.rda, type="n", scaling=3, xlim=c(-1,1), ylim=c(-1,1))
+points(mp.rda, display="species", pch=21, cex=1, col="gray32", bg=col.pred, scaling=3)
+points(mp.rda, display="species", pch=21, cex=1, col=empty.outline, bg=empty, scaling=3)
+text(mp.rda, scaling=3, display="bp", col="#0868ac", cex=1)
+legend("bottomright", legend=c("Pwq","PScv","Pdq","mTwq","TSsd"), bty="n", col="gray32", pch=21, cex=1, pt.bg=bg)
+
+# axes 1 & 3
+plot(mp.rda, type="n", scaling=3, xlim=c(-1,1), ylim=c(-1,1), choices=c(1,3))
+points(mp.rda, display="species", pch=21, cex=1, col="gray32", bg=col.pred, scaling=3, choices=c(1,3))
+points(mp.rda, display="species", pch=21, cex=1, col=empty.outline, bg=empty, scaling=3, choices=c(1,3))
+text(mp.rda, scaling=3, display="bp", col="#0868ac", cex=1, choices=c(1,3))
+legend("bottomright", legend=c("Pwq","PScv","Pdq","mTwq","TSsd"), bty="n", col="gray32", pch=21, cex=1, pt.bg=bg)
+```
+
+
+
+#Identify candidate SNPs with unconditoned RDA
+```{r}
+load.rda.unc <- scores(mp.rda.uncond.ld, choices=c(1:3), display="species")  # Species (SNPs) scores for the first three constrained axes
+hist(load.rda.unc[,1], main="Loadings on RDA1")
+hist(load.rda.unc[,2], main="Loadings on RDA2")
+hist(load.rda.unc[,3], main="Loadings on RDA3")
+
+cand1u <- outliers(load.rda.unc[,1],3) # 0 with 3sd.I used just 3sd, so no outliers in rda1 axes for unconditioned RDA
+#cand1u <- outliers(load.rda.unc[,1],2.15) #29 with 2.3sd
+cand2u <- outliers(load.rda.unc[,2],3) # 17 with 3sd, 
+cand3u <- outliers(load.rda.unc[,3],3) # 74 with 3sd
+
+length(cand1u) 
+length(cand2u) 
+length(cand3u) 
+
+
+
+ncandu <- length(cand1u) + length(cand2u) + length(cand3u)
+
+
+
+ #91 with 3sd in rda1, 120 with 2.3 sd in rda1
+
+cand1u <- cbind.data.frame(rep(1,times=length(cand1u)), names(cand1u), unname(cand1u))
+cand2u <- cbind.data.frame(rep(2,times=length(cand2u)), names(cand2u), unname(cand2u))
+cand3u <- cbind.data.frame(rep(3,times=length(cand3u)), names(cand3u), unname(cand3u))
+
+colnames(cand1u) <- colnames(cand2u) <- colnames(cand3u) <- c("axis","snp","loading")
+
+candu <- rbind(cand1u, cand2u, cand3u)
+candu$snp <- as.character(candu$snp)
+
+#Let’s add in the correlations of each candidate SNP with the eight environmental predictors:
+
+foo <- matrix(nrow=(ncandu), ncol=4)  # 4 columns for 4 predictors
+colnames(foo) <- c("Pwq","PScv","mTwq","TSsd")
+for (i in 1:length(candu$snp)) {
+  nam <- candu[i,2]
+  snp.gen <- gt.indiv[,nam]
+  foo[i,] <- apply(clim.sel,2,function(x) cor(x,snp.gen))
+}
+
+candu <- cbind.data.frame(candu,foo)  
+head(candu)
+
+length(candu$snp[duplicated(candu$snp)])  # 0 duplicate detections
+
+#write.csv(candu, "./081120_selection/0422_outliersRDAuncond_ld_3sd91snps.csv")
+```
+
+
+```{r}
+for (i in 1:length(candu$snp)) {
+  bar <- candu[i,]
+  candu[i,8] <- names(which.max(abs(bar[4:7]))) # gives the variable
+  candu[i,9] <- max(abs(bar[4:7]))              # gives the correlation
+}
+
+colnames(candu)[8] <- "predictor"
+colnames(candu)[9] <- "correlation"
+
+table(candu$predictor) 
+#write.csv(candu, "./081120_selection/0422_outliersRDAuncond_ld_3sd91snps_cor.csv")
+
+#0422 unconditioned 91 snps with 3 sds (not snps in RDA1)
+#mTwq PScv  Pwq TSsd 
+#  54   19    9    9 
+```
+
+# Compare outliers detected by full RDA (unconditioned) and pRDA (conditioned to pop structure)
+
+```{r}
+## For all the outliers
+list_outliers_RDA_all <- list(RDA_conditioned = as.character(candld$snp), RDA_unconditioned = as.character(candu$snp))
+venn.rda <- ggVennDiagram(list_outliers_RDA_all, category.names = c("Partial RDA - Unlinked SNPs", "Full RDA - Unlinked SNPs"), lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + guides(fill = "none") + theme(text = element_text(size=16))
+venn.rda
+#ggsave(plot = venn.rda, "./081120_selection/0422_RDA_figs/0422_venn_prda_frda2.png", dpi = 600, units = "in", height = 4, width = 5)
+common_outliers_RDA <- Reduce(intersect, list_outliers_RDA_all)
+common_outliers_RDA
+#"scaffold_13_208687" "scaffold_22_158097" #only 2 common outlier SNPs
+```
+
+# Outlier RDA plot and Manhattan plot
+## Partial RDA
+```{r}
+#Loadings from Conditioned RDA (Partial RDA)
+
+#Not LD-filtered
+locus_scores <- scores(mp.rda, choices=c(1:2), display="species", scaling="species") # vegan references "species", here these are the loci
+
+head(locus_scores)
+head(cand)
+head(TAB_loci)
+
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Neutral"
+TAB_loci$type[TAB_loci$names%in%cand$snps] <- "Outliers"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Neutral", "Outliers"))
+TAB_loci <- TAB_loci[order(TAB_loci$type),]
+TAB_var <- as.data.frame(scores(mp.rda, choices=c(1,3), display="bp")) # pull the biplot scores
+
+
+## Manhattan plot (no LD)
+candrda1 <- cand[cand$axis==1,]
+Outliers <- rep("Neutral", length(colnames(gt.indiv)))
+Outliers[colnames(gt.indiv)%in%candrda1$snp] <- "Outliers"
+Outliers <- factor(Outliers, levels = c("Neutral", "Outliers"))
+TAB_manhatan <- data.frame(pos = 1:length(colnames(gt.indiv)), 
+                           rda1loading = TAB_loci$RDA1, 
+                           Outliers = Outliers)
+TAB_manhatan <- TAB_manhatan[order(TAB_manhatan$Outliers),]
+thres_load <- mean(TAB_manhatan$rda1loading)+(4*sd(TAB_manhatan$rda1loading))
+thres_load <-thres_load^2
+manh_prda_sqrda1 <- ggplot(data = TAB_manhatan) +
+  geom_point(aes(x=pos, y=rda1loading^2, col = Outliers), size=1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  xlab("Loci") + ylab("Squared RDA1 loading") +
+  #geom_hline(yintercept=thres_load, linetype="dashed", color = gray(.80), size=0.6) +
+  facet_wrap(~"Partial RDA - All SNPs", nrow = 3) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11), strip.background =element_rect(fill=NA))
+manh_prda_sqrda1
+
+#ggsave(plot = manh_prda_sqrda1, "./081120_selection/0422_RDA_figs/0422_manh_prda_sqrda1_nold_4sd_3.png", dpi = 600, units = "in", height = 4, width = 8)
+```
+
+```{r}
+#Loadings from Conditioned RDA (Partial RDA)
+#LD-filtered
+locus_scoresld <- scores(mp.rda.ld, choices=c(1:2), display="species", scaling="species")
+
+head(locus_scoresld)
+head(candld)
+head(TAB_loci)
+
+TAB_loci <- data.frame(names = row.names(locus_scoresld), locus_scoresld)
+TAB_loci$type <- "Neutral"
+TAB_loci$type[TAB_loci$names%in%candld$snps] <- "Outliers"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Neutral", "Outliers"))
+TAB_loci <- TAB_loci[order(TAB_loci$type),]
+TAB_var <- as.data.frame(scores(mp.rda.ld, choices=c(1,3), display="bp")) # pull the biplot scores
+
+## Manhattan plot (LD)
+candldrda1 <- candld[candld$axis==1,]
+Outliers <- rep("Neutral", length(colnames(gt.ld)))
+Outliers[colnames(gt.ld)%in%candldrda1$snp] <- "Outliers"
+Outliers <- factor(Outliers, levels = c("Neutral", "Outliers"))
+TAB_manhatan <- data.frame(pos = 1:length(colnames(gt.ld)), 
+                           rda1loading = TAB_loci$RDA1, 
+                           Outliers = Outliers)
+TAB_manhatan <- TAB_manhatan[order(TAB_manhatan$Outliers),]
+thres_load <- mean(TAB_manhatan$rda1loading)+(3*sd(TAB_manhatan$rda1loading))
+thres_load <-thres_load^2
+manh_prda_sqrda1 <- ggplot(data = TAB_manhatan) +
+  geom_point(aes(x=pos, y=rda1loading^2, col = Outliers), size=1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  xlab("Loci") + ylab("Squared RDA1 loading") +
+  #geom_hline(yintercept=thres_load, linetype="dashed", color = gray(.80), size=0.6) +
+  facet_wrap(~"Partial RDA - Unlinked SNPs", nrow = 3) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11), strip.background =element_rect(fill=NA))
+manh_prda_sqrda1
+#ggsave(plot = manh_prda_sqrda1, "./081120_selection/0422_RDA_figs/0422_manh_prda_sqrda1_noline_2.png", dpi = 600, units = "in", height = 4, width = 8)
+
+## Manhattan plot (not squared loading)
+candldrda1 <- candld[candld$axis==1,]
+Outliers <- rep("Neutral", length(colnames(gt.ld)))
+Outliers[colnames(gt.ld)%in%candldrda1$snp] <- "Outliers"
+Outliers <- factor(Outliers, levels = c("Neutral", "Outliers"))
+TAB_manhatan <- data.frame(pos = 1:length(colnames(gt.ld)), 
+                           rda1loading = TAB_loci$RDA1, 
+                           Outliers = Outliers)
+TAB_manhatan <- TAB_manhatan[order(TAB_manhatan$Outliers),]
+thres_loadp <- mean(TAB_manhatan$rda1loading)+(3*sd(TAB_manhatan$rda1loading))
+thres_loadn <- mean(TAB_manhatan$rda1loading)-(3*sd(TAB_manhatan$rda1loading))
+#thres_load <-thres_load^2
+manh_prda_rda1 <- ggplot(data = TAB_manhatan) +
+  geom_point(aes(x=pos, y=rda1loading, col = Outliers), size=1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  xlab("Loci") + ylab("RDA1 loading") +
+  geom_hline(yintercept=thres_loadp, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_hline(yintercept=thres_loadn, linetype="dashed", color = gray(.80), size=0.6) +
+  facet_wrap(~"Partial RDA", nrow = 3) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11), strip.background =element_rect(fill=NA))
+manh_prda_rda1
+#ggsave(plot = manh_prda_rda1, "./081120_selection/0422_RDA_figs/0422_manh_prda_rda1.png", dpi = 600, units = "in", height = 4, width = 8)
+
+RDA1_candidates2 <- outliers(snp_loadings_positions,4)
+RDA1_candidates2 <- cand1
+RDA1_candidates2$RDA1 <- RDA1_candidates2$loading^2
+RDA1_candidates2 <- RDA1_candidates2[order(RDA1_candidates2$RDA1, decreasing=T),]
+dim(RDA1_candidates2)
+```
+
+
+```{r}
+#Plot with both LD-filtered and not LD-filtered outliers 
+locus_scoresld <- scores(mp.rda.ld, choices=c(1:2), display="species", scaling="species")
+locus_scores <- scores(mp.rda, choices=c(1:2), display="species", scaling="species") # vegan references "species", here these are the loci
+
+head(locus_scores)
+head(cand)
+head(TAB_loci)
+
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Neutral"
+TAB_loci$type[TAB_loci$names%in%cand$snps] <- "All outliers"
+TAB_loci$type[TAB_loci$names%in%candld$snps] <- "Unlinked outliers"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Neutral", "All outliers", "Unlinked outliers"))
+TAB_loci <- TAB_loci[order(TAB_loci$type),]
+TAB_var <- as.data.frame(scores(mp.rda, choices=c(1,3), display="bp")) # pull the biplot scores
+
+
+## Manhattan plot (both)
+candrda1 <- cand[cand$axis==1,]
+candldrda1 <- candld[candld$axis==1,]
+Outliers <- rep("Neutral", length(colnames(gt.indiv)))
+Outliers[colnames(gt.indiv)%in%candrda1$snp] <- "All outliers"
+Outliers[colnames(gt.indiv)%in%candldrda1$snp] <- "Unlinked outliers"
+Outliers <- factor(Outliers, levels = c("Neutral", "All outliers", "Unlinked outliers"))
+
+TAB_manhatan <- data.frame(pos = 1:length(colnames(gt.indiv)), 
+                           rda1loading = TAB_loci$RDA1, 
+                           Outliers = Outliers)
+TAB_manhatan <- TAB_manhatan[order(TAB_manhatan$Outliers),]
+thres_load <- mean(TAB_manhatan$rda1loading)+(3*sd(TAB_manhatan$rda1loading))
+thres_load <-thres_load^2
+
+manh_prda_sqrda1 <- ggplot(data = TAB_manhatan) +
+  geom_point(aes(x=pos, y=rda1loading^2, col = Outliers), size=1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#0072B2")) +
+  xlab("Loci") + ylab("Squared RDA1 loading") +
+ # geom_hline(yintercept=thres_load, linetype="dashed", color = gray(.80), size=0.6) +
+  facet_wrap(~"Partial RDA", nrow = 3) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11), strip.background =element_rect(fill=NA))
+manh_prda_sqrda1
+#ggsave(plot = manh_prda_sqrda1, "./081120_selection/0422_RDA_figs/0422_manh_prda_rda1_both.png", dpi = 600, units = "in", height = 4, width = 8)
+
+## Manhattan plot (not squared loading)
+candrda1 <- cand[cand$axis==1,]
+candldrda1 <- candld[candld$axis==1,]
+Outliers <- rep("Neutral", length(colnames(gt.indiv)))
+Outliers[colnames(gt.indiv)%in%candrda1$snp] <- "All outliers"
+Outliers[colnames(gt.indiv)%in%candldrda1$snp] <- "Unlinked outliers"
+Outliers <- factor(Outliers, levels = c("Neutral", "All outliers", "Unlinked outliers"))
+
+TAB_manhatan <- data.frame(pos = 1:length(colnames(gt.indiv)), 
+                           rda1loading = TAB_loci$RDA1, 
+                           Outliers = Outliers)
+TAB_manhatan <- TAB_manhatan[order(TAB_manhatan$Outliers),]
+
+thres_loadp <- mean(TAB_manhatan$rda1loading)+(3*sd(TAB_manhatan$rda1loading))
+thres_loadn <- mean(TAB_manhatan$rda1loading)-(3*sd(TAB_manhatan$rda1loading))
+
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+rda1loading = TAB_loci$RDA1
+#thres_load <-thres_load^2
+manh_prda_rda1 <- ggplot(data = TAB_manhatan) +
+  geom_point(aes(x=pos, y=rda1loading, col = Outliers), size=1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF","#0072B2","#6B4596FF")) +
+  xlab("Loci") + ylab("RDA1 loading") +
+  #geom_hline(yintercept=thres_loadp, linetype="dashed", color = gray(.80), size=0.6) +
+  #geom_hline(yintercept=thres_loadn, linetype="dashed", color = gray(.80), size=0.6) +
+  facet_wrap(~"Partial RDA", nrow = 3) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11), strip.background =element_rect(fill=NA))
+manh_prda_rda1
+#ggsave(plot = manh_prda_rda1, "./081120_selection/0422_RDA_figs/0422_manh_prda_rda1_bothnotsqnoline.png", dpi = 600, units = "in", height = 4, width = 8)
+```
+
+
+
+
+## Full RDA (unconditioned)
+```{r}
+#Loadings from Conditioned RDA (Partial RDA)
+locus_scores <- scores(mp.rda.uncond.ld, choices=c(1:2), display="species", scaling="none") # vegan references "species", here these are the loci
+head(locus_scores)
+head(candu)
+head(TAB_loci)
+
+TAB_loci <- data.frame(names = row.names(locus_scores), locus_scores)
+TAB_loci$type <- "Neutral"
+TAB_loci$type[TAB_loci$names%in%candu$snps] <- "Outliers"
+TAB_loci$type <- factor(TAB_loci$type, levels = c("Neutral", "Outliers"))
+TAB_loci <- TAB_loci[order(TAB_loci$type),]
+TAB_var <- as.data.frame(scores(mp.rda.uncond.ld, choices=c(1,3), display="bp")) # pull the biplot scores
+
+## Biplot of RDA loci and variables scores
+library(ggplot2)
+ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_point(data = TAB_loci, aes(x=RDA1*20, y=RDA2*20, colour = type), size = 1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", size=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 2.5, family = "Times") +
+  xlab("RDA 1") + ylab("RDA 2") +
+  facet_wrap(~"RDA space") +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(panel.background = element_blank(), legend.background = element_blank(), panel.grid = element_blank(), plot.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+
+## Manhattan plot
+candrda1 <- candu[candu$axis==1,]
+Outliers <- rep("Neutral", length(colnames(gt.ld)))
+Outliers[colnames(gt.ld)%in%candrda1$snp] <- "Outliers"
+Outliers <- factor(Outliers, levels = c("Neutral", "Outliers"))
+TAB_manhatan <- data.frame(pos = 1:length(colnames(gt.ld)), 
+                           rda1loading = TAB_loci$RDA1, 
+                           Outliers = Outliers)
+TAB_manhatan <- TAB_manhatan[order(TAB_manhatan$Outliers),]
+thres_load <- mean(TAB_manhatan$rda1loading)+(2.15*sd(TAB_manhatan$rda1loading))
+thres_load <-thres_load^2
+manh_urda_sqrda1 <- ggplot(data = TAB_manhatan) +
+  geom_point(aes(x=pos, y=rda1loading^2, col = Outliers), size=1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  xlab("Loci") + ylab("Squared RDA1 loading") +
+  geom_hline(yintercept=thres_load, linetype="dashed", color = gray(.80), size=0.6) +
+  facet_wrap(~"Full RDA", nrow = 3) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11), strip.background =element_rect(fill=NA))
+manh_urda_sqrda1
+
+#ggsave(plot = manh_urda_sqrda1, "./081120_selection/0422_RDA_figs/0422_manh_urda_sqrda1_2p3sd.png", dpi = 600, units = "in", height = 4, width = 8)
+#ggsave(plot = manh_prda_sqrda1, "./081120_selection/0422_RDA_figs/0422_manh_prda_sqrda1_nold_4sd.png", dpi = 600, units = "in", height = 4, width = 8)
+## Manhattan plot (not squared loading)
+candrda1 <- candu[candu$axis==1,]
+Outliers <- rep("Neutral", length(colnames(gt.ld)))
+Outliers[colnames(gt.ld)%in%candrda1$snp] <- "Outliers"
+Outliers <- factor(Outliers, levels = c("Neutral", "Outliers"))
+TAB_manhatan <- data.frame(pos = 1:length(colnames(gt.ld)), 
+                           rda1loading = TAB_loci$RDA1, 
+                           Outliers = Outliers)
+TAB_manhatan <- TAB_manhatan[order(TAB_manhatan$Outliers),]
+thres_loadp <- mean(TAB_manhatan$rda1loading)+(3*sd(TAB_manhatan$rda1loading))
+thres_loadn <- mean(TAB_manhatan$rda1loading)-(3*sd(TAB_manhatan$rda1loading))
+#thres_load <-thres_load^2
+manh_prda_rda1 <- ggplot(data = TAB_manhatan) +
+  geom_point(aes(x=pos, y=rda1loading, col = Outliers), size=1.4) +
+  scale_color_manual(values = c("gray90", "#F9A242FF", "#6B4596FF")) +
+  xlab("Loci") + ylab("RDA1 loading") +
+  geom_hline(yintercept=thres_loadp, linetype="dashed", color = gray(.80), size=0.6) +
+  geom_hline(yintercept=thres_loadn, linetype="dashed", color = gray(.80), size=0.6) +
+  facet_wrap(~"Partial RDA", nrow = 3) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11), strip.background =element_rect(fill=NA))
+manh_prda_rda1
+#ggsave(plot = manh_prda_rda1, "./081120_selection/0422_RDA_figs/0422_manh_prda_rda1.png", dpi = 600, units = "in", height = 4, width = 8)
+
+RDA1_candidates2 <- outliers(snp_loadings_positions,4)
+RDA1_candidates2 <- cand1
+RDA1_candidates2$RDA1 <- RDA1_candidates2$loading^2
+RDA1_candidates2 <- RDA1_candidates2[order(RDA1_candidates2$RDA1, decreasing=T),]
+dim(RDA1_candidates2)
+```
+
