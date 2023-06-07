@@ -1,0 +1,1697 @@
+---
+title: "03_Mp_PopulationGenomicsAnalysis"
+author: "Viviana Ortiz"
+date: "10/19/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r eval = TRUE, echo = FALSE, results = 'hide'}
+
+rm(list=ls(all=TRUE)) #Removes all variables in the global environment
+
+Sys.time() # prints out the time and date you ran the code
+
+options(scipen = 999) # stops anything from being in scientific notation
+```
+
+#Install packges and load libraries
+```{r}
+ipak <- function( pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[,"Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+packages <- c("poppr", "vcfR", "ape", "mmod", "pegas", "ggplot2", "adegenet", "seqinr",
+"magrittr", "plink", "reshape2", "agricolae", "plotly", "reshape2", "cowplot")
+ipak(packages)
+```
+
+#Creating a genlight object using the filtered vcf
+```{r}
+vcf95filt <- "051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_MAF002.vcf.gz"
+vcf <- read.vcfR(vcf95filt,
+                 convertNA = TRUE, verbose = TRUE)
+
+vcf #95 samples, 86 CHROMs, 77,465 variants
+
+#Genligth object only supports biallelic SNPs, 484 loci with more than two alleles will be omitted from the genlight object
+gl.mp <- vcfR2genlight(vcf[is.polymorphic(vcf, na.omit = T)])
+gl.mp #95 genotypes,  76,981 binary SNPs, size: 8.1 Mb
+
+#Setting the ploidy
+ploidy(gl.mp) <- as.integer(1)
+```
+
+
+#Including metadata to assign populations
+```{r}
+#Setting the populations
+folder <- "isolates_database/"
+data <- read.csv(paste0(folder, "2021_95mp_vcforder_climKG2018_1km.csv"), na.strings = ("NA")) #metadata
+
+data$isolate <- as.factor(data$isolate)
+data$isolate_vcf <- as.factor(data$isolate_vcf)
+data$Location <- as.factor(data$Location)
+data$Country <- as.factor(data$Country)
+data$State_Department <- as.factor(data$State_Department)
+data$Region <- as.factor(data$Region)
+data$region_noaa<- as.factor(data$region_noaa)
+data$region_IPCC<- as.factor(data$region_IPCC)
+data$Host <- as.factor(data$Host)
+data$Municipality <- as.factor(data$Municipality)
+data$field <-as.factor(data$field)
+
+
+#Add strata to a genlight object 
+#strata: a data frame containing different levels of population definition. (For methods, see addStrata and setPop)
+
+strata(gl.mp) <- data.frame(data)
+gl.mp
+strata(gl.mp)
+head(strata(gl.mp))
+tail(strata(gl.mp))
+colnames(strata(gl.mp))
+
+nameStrata(gl.mp) <- ~vcf_order/Isolate/Isolate_vcf/label_raxml_ng/location_full/Longitude/Latitude/Region/Region_noaa/Region_IPCCC/Country/Location/State_Department/Host/municipality_resolution/Municipality/Field/Clade/Subclade/Genetic_Cluster/source/comments/ClimZ_code/ClimZ/description/RGB
+head(strata(gl.mp))
+```
+
+
+#Setting the strata
+```{r}
+#####Here is how to set the population using strata, after defining the strata, you use set<- for setting populations
+#Next, we analyze the data according to Country, Clade, and/or Genetic CLuster:
+
+#Clade/subclade
+setPop(gl.mp) <- ~Clade/Subclade
+gl.mp
+
+#Subclade
+setPop(gl.mp) <- ~Subclade
+gl.mp
+
+#Country
+setPop(gl.mp) <- ~Country
+gl.mp
+
+#Country/State
+setPop(gl.mp) <- ~Country/State_Department
+gl.mp
+
+#Country/State/Municipality
+setPop(gl.mp) <- ~Country/State_Department/Municipality
+gl.mp
+
+#Genetic_Cluster
+setPop(gl.mp) <- ~Genetic_Cluster
+gl.mp
+
+pop.clade <- as.factor(data$clade)
+pop.subclade <- as.factor(data$subclade)
+pop.country <- as.factor(data$Country)
+pop.cluster <- as.factor(data$Genetic_Cluster)
+```
+
+# 1.Principal components analysis
+```{r}
+#Colors 
+library(adegenet)
+library(scales)
+library(RColorBrewer)
+
+
+#PCA
+#Set population to Genetic_Cluster
+setPop(gl.mp) <- ~Genetic_Cluster
+gl.mp
+
+mp.pca <- glPca(gl.mp, nf = 4) #nf = NULL if want to select the number of axes to be retained
+barplot(100*mp.pca$eig/sum(mp.pca$eig), col = heat.colors(50), main="PCA Eigenvalues")#looks like 2 or 3 explain most of the variance
+title(ylab="Percent of variance\nexplained", line = 2)
+title(xlab="Eigenvalues", line = 1)
+
+#To see variance explained
+var.expl <- 100*mp.pca$eig/sum(mp.pca$eig)
+var.expl
+
+mp.pca.scores <- as.data.frame(mp.pca$scores)
+mp.pca.scores$pop <- pop(gl.mp)
+
+#see order to assign colors
+levels(mp.pca.scores$pop)
+#[1] "US2"    "US1A"   "COLPR2" "US1B"   "COLPR1"
+#colors
+subclade.col5 <- c("#F06C45CC", "#FDA440CC", "#1F78B4CC","#569EA4", "#6A3D9ACC")
+show_col(subclade.col5)
+#ordered colors
+subclade.col5 <- c("#1F78B4CC","#569EA4", "#6A3D9ACC", "#F06C45CC", "#FDA440CC")
+show_col(subclade.col5)
+
+p <- ggplot(mp.pca.scores, aes(x=PC1, y=PC2, colour=pop, fill=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC1, y=PC3, colour=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC2, y=PC3, colour=pop)) 
+p <- p + geom_point(shape=21, colour="black", size=4) + theme_classic()
+p
+p <- p + scale_colour_manual(values = subclade.col5, aesthetics = c("fill", "colour"), na.value = "grey90",
+                             limits = c("US1A", "US1B", "US2", "COLPR1","COLPR2"),
+                             name="Genetic Cluster") 
+p
+p <- p + stat_ellipse(level = 0.95, size = 0.6)
+p
+p <- p + labs(x= "PC1 (50.6%)", y = "PC2 (15.5%)")#vcf 77k 
+p
+p <- p + geom_hline(yintercept = 0, size=0.1) 
+p <- p + geom_vline(xintercept = 0, size=0.1) 
+p <- p + theme(panel.border = element_rect(fill = NA)) 
+p
+p <- p + theme(legend.box.background = element_rect(), legend.box.margin = margin()) 
+p
+ggsave(plot = p, "./202111_figures/112121_pca_4.png", dpi = 600, units = "in", height = 4, width = 5)
+
+#or points with alpha and no border
+p <- ggplot(mp.pca.scores, aes(x=PC1, y=PC2, colour=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC1, y=PC3, colour=pop)) 
+#p <- ggplot(mp.pca.scores, aes(x=PC2, y=PC3, colour=pop)) 
+p <- p + geom_point(size=4, alpha = 0.6) + theme_classic()
+p
+p <- p + scale_colour_manual(values = subclade.col5, aesthetics = "colour", na.value = "grey90",
+                             limits = c("US1A", "US1B", "US2", "COLPR1","COLPR2"),
+                             name="Genetic Cluster",) 
+p
+p <- p + stat_ellipse(level = 0.95, size = 0.6)
+p
+p <- p + labs(x= "PC1 (50.6%)", y = "PC2 (15.5%)")#vcf 77k 
+p
+p <- p + geom_hline(yintercept = 0, size=0.1) 
+p <- p + geom_vline(xintercept = 0, size=0.1) 
+p
+ggsave(plot = p, "./202111_figures/112121_pca_3.png", dpi = 600, units = "in", height = 4, width = 5)
+```
+
+
+# 1.1 DAPC adegenet using find clusters grouping (K-means)
+```{r}
+#Set population to Genetic_Cluster
+setPop(gl.mp) <- ~Genetic_Cluster
+gl.mp
+
+grp_mp <- find.clusters(gl.mp, max.n.clust = 10)
+#20 PCs, 5 clusters
+dapc1 <- dapc(gl.mp, grp_mp$grp)
+#15 PCs retained, 100 das retained
+dapc1
+scatter(dapc1)
+scatter(dapc1, scree.da=FALSE, leg=F) 
+scatter(dapc1, scree.da=FALSE, bg="white", pch=17-21, cstar=0, solid=0.4, cex=3,clab=0, leg=TRUE, txt.leg=paste("Cluster",1:7))
+compoplot(dapc1, posi="bottomright", txt.leg=paste("Cluster", 1:4), lab="", ncol=1, xlab="individuals", col=funky(10))
+```
+
+#K-means clustering from pop genomics in R Grunwald
+```{r}
+library(adegenet)
+maxK <- 7
+myMat <- matrix(nrow=7, ncol=maxK)
+colnames(myMat) <- 1:ncol(myMat)
+for(i in 1:nrow(myMat)){
+  grp <- find.clusters(gl.mp, n.pca = 40, choose.n.clust = FALSE,  max.n.clust = maxK)
+  myMat[i,] <- grp$Kstat
+}
+
+#Visualizing K-mean clustering
+library(ggplot2)
+library(reshape2)
+my_df <- melt(myMat)
+colnames(my_df)[1:3] <- c("Group", "K", "BIC")
+my_df$K <- as.factor(my_df$K)
+head(my_df)
+
+#plot BIC
+p1 <- ggplot(my_df, aes(x = K, y = BIC))
+p1 <- p1 + geom_boxplot()
+p1 <- p1 + theme_bw()
+p1 <- p1 + xlab("Number of groups (K)")
+p1
+
+
+#DAPC
+my_k <- 4:7
+my_k <- 5
+#my_k <- 7
+
+grp_l <- vector(mode = "list", length = length(my_k))
+dapc_l <- vector(mode = "list", length = length(my_k))
+
+for(i in 1:length(dapc_l)){
+  set.seed(9)
+  grp_l[[i]] <- find.clusters(gl.mp, n.pca = 40, n.clust = my_k[i])
+  dapc_l[[i]] <- dapc(gl.mp, pop = grp_l[[i]]$grp, n.pca = 40, n.da = my_k[i])
+#  dapc_l[[i]] <- dapc(gl.mp, pop = grp_l[[i]]$grp, n.pca = 3, n.da = 2)
+}
+
+#DAPC scatterplot
+my_df <- as.data.frame(dapc_l[[ length(dapc_l) ]]$ind.coord)
+my_df$Group <- dapc_l[[ length(dapc_l) ]]$grp
+head(my_df)
+
+my_pal <- RColorBrewer::brewer.pal(n=8, name = "Dark2")
+
+p2 <- ggplot(my_df, aes(x = LD1, y = LD2, color = Group, fill = Group))
+p2 <- p2 + geom_point(size = 4, shape = 21)
+p2 <- p2 + theme_bw()
+p2 <- p2 + scale_color_manual(values=c(my_pal))
+p2 <- p2 + scale_fill_manual(values=c(paste(my_pal, "66", sep = "")))
+p2
+
+
+#DAPC barplot
+#barplots of the posterior probabilities of group assignment for each sample. Here we’ll use “facets” to separate the different values of K
+#Long format dataframe
+tmp <- as.data.frame(dapc_l[[1]]$posterior)
+tmp$K <- my_k[1]
+tmp$Isolate <- rownames(tmp)
+tmp <- melt(tmp, id = c("Isolate", "K"))
+names(tmp)[3:4] <- c("Group", "Posterior")
+tmp$Population <- pop(gl.mp)
+my_df <- tmp
+
+for(i in 2:length(dapc_l)){
+  tmp <- as.data.frame(dapc_l[[i]]$posterior)
+  tmp$K <- my_k[i]
+  tmp$Isolate <- rownames(tmp)
+  tmp <- melt(tmp, id = c("Isolate", "K"))
+  names(tmp)[3:4] <- c("Group", "Posterior")
+  tmp$Population <- pop(gl.mp)
+
+  my_df <- rbind(my_df, tmp)
+}
+
+#PLot de DAPC barplot (compoplot)
+grp.labs <- paste("K =", my_k)
+names(grp.labs) <- my_k
+
+p3 <- ggplot(my_df, aes(x = Isolate, y = Posterior, fill = Group))
+p3 <- p3 + geom_bar(stat = "identity")
+p3 <- p3 + facet_grid(K ~ Population, scales = "free_x", space = "free", 
+                      labeller = labeller(K = grp.labs))
+p3 <- p3 + theme_bw()
+p3 <- p3 + ylab("Posterior membership probability")
+p3 <- p3 + theme(legend.position='none')
+#p3 <- p3 + scale_color_brewer(palette="Dark2")
+p3 <- p3 + scale_fill_manual(values = subclade.col5, na.value = "grey90",
+                             limits = c("1", "3", "5", "2","4"),
+                             name="Genetic Cluster")
+p3 <- p3 + theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8))
+p3
+
+ggsave(plot = p3, "./202111_figures/112121033121_kmeans5_dapc_compoplot_xsmall.png", dpi = 600, units = "in", height = 4, width = 10)
+```
+
+
+
+
+
+# 2.Genetic diversity and differentiation 
+Raw data, clone correction has not been applied yet here
+```{r}
+#Genetic diversity individual
+library(poppr)
+mpdiv <- diversity_stats(gl.mp)
+mpdiv
+
+#Genetic differentiation at population level
+
+#1.Using Country
+gen.diff.country <- as.data.frame(genetic_diff(vcf, pop.country))
+head(gen.diff.country)
+# Mean value of each metric
+colMeans(gen.diff.country[,c(3:ncol(gen.diff.country))], na.rm = T)
+
+#2.Using Clade
+gen.diff.clade <- as.data.frame(genetic_diff(vcf, pop.clade))
+head(gen.diff.clade)
+# Mean value of each metric
+colMeans(gen.diff.clade[,c(3:ncol(gen.diff.clade))], na.rm = T)
+
+#3.Using genetic cluster
+gen.diff.cluster <- as.data.frame(genetic_diff(vcf, pop.cluster))
+head(gen.diff.cluster)
+# Mean value of each metric
+colMeans(gen.diff.cluster[,c(3:ncol(gen.diff.cluster))], na.rm = T)
+```
+
+
+# 2.1 Genetic differentiation at different population levels using genind object
+
+
+Create genind object for clone-corrected analysis
+```{r}
+#Calculating genetic differentiation using "poppr" function which takes a genind object
+#Convert vcf to genind 
+gi.mp <- vcfR2genind(vcf[is.polymorphic(vcf, na.omit = T)])
+gi.mp
+
+gi.mp.bial <- 
+
+#Setting the ploidy
+ploidy(gi.mp) <- as.integer(1)
+
+
+#Seting the strata for genind object to the same as for genlight object 
+strata(gi.mp) <- strata(gl.mp)
+strata(gi.mp)
+
+#Setting the population
+setPop(gi.mp) <- ~Genetic_Cluster
+gi.mp
+gi.mp@pop
+```
+
+```{r}
+#Clone corrected genind
+gi.mp.cc <- clonecorrect(gi.mp, strata = ~Genetic_Cluster, combine = T) #combine T: the strata will be combined to create a new population for the clone-corrected genind or genclone object
+#After clone correction using genetic cluster
+#77 individuals; 77,465 loci; 155,395 alleles; size: 92.8 Mb
+
+gi.mp.cchier <- clonecorrect(gi.mp, strata = ~Clade/Genetic_Cluster, combine = T) #combine T: the strata will be combined to create a new population for the clone-corrected genind or genclone object
+gi.mp.cchier
+gi.mp.cchier@pop
+#79 individuals; 77,465 loci; 155,395 alleles; size: 94 Mb
+
+#Remove isolates with NA in strata (IN129-4 and Mph40) which were not assigned to any genetic cluster
+gi.mp.cc.nona <- gi.mp.cc[!is.na(strata(gi.mp.cc)$Genetic_Cluster) , ]
+gi.mp.cc.nona
+gi.mp.cc.nona@pop
+
+
+####Country
+##Median pairwise distance by Country
+#Using clone corrected genind
+gi.mp.cchier
+setPop(gi.mp.cchier) <- ~Country
+gi.mp.cchier@pop
+gi.uscou <- popsub(gi.mp.cchier , sublist = "US")
+gi.col <- popsub(gi.mp.cchier , sublist = "COL")
+gi.pr <- popsub(gi.mp.cchier , sublist = "PR")
+
+#Median pairwise genetic distance within countries
+#US
+usdistcou <- bitwise.dist(gi.uscou)
+#usdist
+median(usdistcou)
+#COL
+coldist <- bitwise.dist(gi.col)
+#coldist
+median(coldist)
+#PR
+prdist <- bitwise.dist(gi.pr)
+#prdist
+median(prdist)
+
+#Expected heterozygosity (Hexp) with Hs function (adegenet)
+#Hs for each Country
+Hs.country <- Hs(gi.mp.cchier)
+Hs.country
+#       US       COL        PR 
+#0.1035387 0.2633720 0.1631632 
+
+#Test difference in expected heterozygosity (Gene diversity)
+#Pairwise US-Colombia
+us_co_Ht <- Hs.test(gi.mp.cchier[pop="US"], gi.mp.cchier[pop="COL"], n.sim=499)
+us_co_Ht
+plot(us_co_Ht)
+
+#Pairwise US-PR
+us_pr_Ht <- Hs.test(gi.mp.cchier[pop="US"], gi.mp.cchier[pop="PR"], n.sim=499)
+us_pr_Ht
+plot(us_pr_Ht)
+
+#Pairwise CO-PR
+co_pr_Ht <- Hs.test(gi.mp.cchier[pop="COL"], gi.mp.cchier[pop="PR"], n.sim=499)
+co_pr_Ht
+plot(co_pr_Ht)
+
+##Hexp and other statsitics with poppr
+h.uscou <- locus_table(gi.uscou)
+h.uscou
+
+####Clades
+##Median pairwise distance by Clades
+#Using NOT clone corrected genind
+# gi.mp 
+# #Subset genind to Clades
+# popNames(gi.mp)
+# setPop(gi.mp) <- ~Clade #Setting the population
+# gi.mp
+# gi.mp@pop
+# gi.us <- popsub(gi.mp, sublist = "US")
+# gi.colpr <- popsub(gi.mp, sublist = "COLPR")
+
+#Using clone corrected genind
+gi.mp.cchier
+setPop(gi.mp.cchier) <- ~Clade
+gi.mp.cchier@pop
+gi.us <- popsub(gi.mp.cchier , sublist = "US")
+gi.colpr <- popsub(gi.mp.cchier , sublist = "COLPR")
+
+#Median pairwise genetic distance within clades
+#US
+usdist <- bitwise.dist(gi.us)
+#usdist
+median(usdist)
+mean(usdist)
+#COLPR
+colprdist <- bitwise.dist(gi.colpr)
+#colprdist
+median(colprdist)
+
+#Expected heterozygosity Hs (adegenet)
+#Hs for each clade
+Hs(gi.mp.cchier) #clone-corrected at 79 MLGs
+#       US      COLPR 
+#0.06839165 0.23628203 
+Hs(gc.mp)# clone-corrected at 34MLL
+#        US      COLPR 
+#0.05734503 0.23628203 
+
+#Test difference in expected heterozygosity (Gene diversity)
+#Pairwise
+us_colprHt <- Hs.test(gi.mp.cchier[pop="US"], gi.mp.cchier[pop="COLPR"], n.sim=499)
+us_colprHt
+plot(us_colprHt)
+
+###Genetic Clusters
+#Subset genind to Genetic Cluster
+# gi.mp
+# setPop(gi.mp) <- ~Genetic_Cluster
+# popNames(gi.mp)
+# gi.us1a <- popsub(gi.mp, sublist = "US1A")
+# gi.us1b <- popsub(gi.mp, sublist = "US1B")
+# gi.us2 <- popsub(gi.mp, sublist = "US2")
+# gi.colpr1 <- popsub(gi.mp, sublist = "COLPR1")
+# gi.colpr2 <- popsub(gi.mp, sublist = "COLPR2")
+
+#Using clone corrected genind
+gi.mp.cchier #Using clone corrected genind
+setPop(gi.mp.cchier) <- ~Genetic_Cluster
+popNames(gi.mp.cchier)
+gi.us1a <- popsub(gi.mp.cchier, sublist = "US1A")
+gi.us1b <- popsub(gi.mp.cchier, sublist = "US1B")
+gi.us2 <- popsub(gi.mp.cchier, sublist = "US2")
+gi.colpr1 <- popsub(gi.mp.cchier, sublist = "COLPR1")
+gi.colpr2 <- popsub(gi.mp.cchier, sublist = "COLPR2")
+
+#Median pairwise genetic distance within genetic clusters 
+#US1A
+us1adist <- bitwise.dist(gi.us1a)
+#us1adist
+median(us1adist)
+#US1B
+us1bdist <- bitwise.dist(gi.us1b)
+#us1bdist
+median(us1bdist)
+#US2
+us2dist <- bitwise.dist(gi.us2)
+#us2dist
+median(us2dist)
+#COLPR1
+colpr1dist <- bitwise.dist(gi.colpr1)
+#colpr1dist
+median(colpr1dist)
+#COLPR2
+colpr2dist <- bitwise.dist(gi.colpr2)
+#colpr2dist
+median(colpr2dist)
+
+#Expected heterozygosity Hs (adegenet)
+#Hs for each cluster
+Hs(gi.mp.cchier)
+
+#Test difference in expected heterozygosity (Gene diversity)
+#Pairwise
+us1a_1bHt <- Hs.test(gi.mp.cchier[pop="US1A"], gi.mp.cchier[pop="US1B"], n.sim=499)
+us1a_1bHt
+plot(us1a_1bHt)
+
+
+#Global GST using clone-corrected genind
+#Clades
+diff.usclade <- diff_stats(gi.us) # this function calculates overall Nei's Gst, Hedrick's Gst and  of the dataset
+diff.colprclade <- diff_stats(gi.colpr)
+```
+
+# 3.Pairwise genetic differentiation 
+```{r}
+#Pairwise genetic difference
+
+#Clades US and COLPR
+gen.dif.clade.pair <- pairwise_genetic_diff(vcf, pop.clade, method = "nei")
+dim(gen.dif.clade.pair)
+head(gen.dif.clade.pair)
+colMeans(gen.dif.clade.pair[c(4:ncol(gen.dif.clade.pair))], na.rm = T)
+#Gst_COLPR_US Gprimest_COLPR_US 
+#  0.3246086         0.4137490 
+
+#Genetic Clusters all
+gen.dif.gc.pair <- pairwise_genetic_diff(vcf, pop.cluster, method = "nei")
+dim(gen.dif.gc.pair)
+head(gen.dif.gc.pair)
+colMeans(gen.dif.gc.pair[c(4:ncol(gen.dif.gc.pair))], na.rm = T)
+
+
+us.gen.dif.subcl.pair <- pairwise_genetic_diff(us.vcf, pop.ussubclade2, method = "nei")
+dim(gen.dif.subcl.pair)
+head(gen.dif.subcl.pair)
+colMeans(gen.dif.subcl.pair[c(4:45)], na.rm = T)
+hist(gen.dif.subcl.pair[5], xlab = expression(italic("G'"["ST"])), col='skyblue', breaks = seq(0, 1, by = 0.01))
+#problem with NaN, it looks it may be a memory issue 
+```
+
+# 3.1 Pairwise genetic differentiation using mmod package and genind object
+https://www.molecularecologist.com/2011/03/02/should-i-use-fst-gst-or-d-2/
+
+Clone corrected
+
+```{r}
+#Pairwise genetic differentiation using mmod package and genind object
+library(mmod)
+#vignette("mmod-demo", package="mmod")
+
+#Clades
+gi.mp.cchier
+setPop(gi.mp.cchier) <- ~Clade
+popNames(gi.mp.cchier)
+pair.diff.clades  <- pairwise_Gst_Nei(gi.mp.cchier, linearized = FALSE) # Calculates pairwise Gst. If linearized = TRUE, it calculates 1/(1- Gst)  
+#            US
+#COLPR 0.4453554
+
+Gst_Hedrick(gi.mp.cc.co)
+pairgstHed.co <- pairwise_Gst_Hedrick(gi.mp.cc.co, linearized = FALSE)# Calculates pairwise Gst. If linearized = TRUE, it calculates 1/(1- Gst')
+
+
+
+#Genetic clusters 
+##79 MLGs
+setPop(gi.mp.cchier) <- ~Genetic_Cluster
+popNames(gi.mp.cchier)
+pair.diff.gc <- pairwise_Gst_Nei(gi.mp.cchier, linearized = FALSE) # Calculates pairwise Gst. If linearized = TRUE, it calculates 1/(1- Gst)  
+#             US2      US1A    COLPR2      US1B
+#US1A   0.9918494                              
+#COLPR2 0.6948396 0.6833509                    
+#US1B   0.6385817 0.5431124 0.5865585          
+#COLPR1 0.8114427 0.8038622 0.5033223 0.6925585
+
+#Test significance in GST
+bs <- chao_bootstrap(gi.mp.cchier, nreps = 100)
+summarise_bootstrap(bs, Gst_Nei)     # for Nei's Gst
+
+
+##34 MLGs, pretty much same results as with 79 MLGs
+setPop(gc.mp) <- ~Genetic_Cluster
+popNames(gc.mp)
+pair.diff.gcmll <- pairwise_Gst_Nei(gc.mp, linearized = FALSE) # Calculates pairwise Gst. If linearized = TRUE, it calculates 1/(1- Gst)  
+#             US2      US1A    COLPR2      US1B
+#US1A   0.9919670                              
+#COLPR2 0.6948396 0.6840234                    
+#US1B   0.6385817 0.5440726 0.5865585          
+#COLPR1 0.8114427 0.8043152 0.5033223 0.6925585
+
+```
+
+
+
+# 4. Multilocus genotype analysis using snpclone object
+https://grunwaldlab.github.io/poppr/articles/mlg.html
+This will make sure that you can have mutlilocus genotype definitions travel with your data. From here, you can:
+
+
+Define multilocus lineages with mlg.filter()
+Calculate sliding windows of the standardized index of association with win.ia() 
+Randomly sample loci for the standardized index of association with samp.ia()
+Construct minimum spanning networks with poppr.msn()
+Create boostrapped dendrograms with aboot()
+
+# 4.1 Defining multilocus lineages with mlg.filter() and a distance threshold
+```{r}
+
+#1.Converting genind to genclone
+setPop(gi.mp) <- ~Clade #Set population
+gc.mp <- as.genclone(gi.mp) #genclone
+gc.mp #79 original multilocus genotypes
+gc.mp@mlg
+gc.mp@pop 
+```
+
+
+```{r}
+# or Converting genlight to snpclone: best for many loci and the difference is using only biallellic loci
+#snpclone 
+#This snpclone will have the strata  and population I set to the genlight object
+sc.mp <- as.snpclone(gl.mp) #snpclone
+sc.mp #75 original multilocus genotypes
+sc.mp@pop
+```
+
+## 4.1.1 Explore MLGs and define a threshold for MLLs
+This is exploratory, don't need to run this chunck every time 
+#Genclone
+```{r}
+#2. Explore orginal MLGs
+#Plot thresholds
+#thresh <- filter_stats(gc.mp, distance = bitwise.dist, plot = TRUE)
+
+#p <- last_plot(); p + facet_wrap(~population, ncol = 1, scales = "free_y")
+#p
+#mll() to display and switch between different multilocus genotypes/lineages
+head(mll(gc.mp, "original"), 20) # Showing the definitions for the first 20 samples
+#snpclone
+head(mll(sc.mp, "original"), 20)
+
+     #Naïve (“original”)
+#This is the default way poppr calculates multilocus genotypes
+mll(gc.mp) <- "original"
+gc.mp #79 original multilocus genotypes
+
+head(mll(gc.mp, "original"), 20) # Showing the definitions for the first 20 samples
+mll(gc.mp, "original") # all samples mlgs
+
+#Default MLG: all alleles must match to make a unique multilocus genotype
+#Default MLG 
+mlg_gc <- mlg.table(gc.mp, strata = ~Clade/Genetic_Cluster)
+ggsave("mlg_clade_gc_hier.pdf")
+
+# See which individuals belong to each MLG
+mlgid <- mlg.id(gc.mp)
+mlgid["59"] # "M_15_12_R1"      "W_MISO2_4_10_R1"
+
+# Let's say we want to visualize the multilocus genotype distribution for each cluster
+us1atab <- mlg.table(gc.mp, sublist = c("US1A"), plot=TRUE)
+ncol(us1atab) #MLGs in us1a, the columns of the table from mlg.table are equal to the number of MLGs
+us1btab <- mlg.table(gc.mp, sublist = c("US1B"), plot=TRUE)
+ncol(us1btab) 
+us2tab <- mlg.table(gc.mp, sublist = c("US2"), plot=TRUE)
+ncol(us2tab) 
+colpr1tab <- mlg.table(gc.mp, sublist = c("COLPR1"), plot=TRUE)
+ncol(colpr1tab) 
+colpr2tab <- mlg.table(gc.mp, sublist = c("COLPR2"), plot=TRUE)
+ncol(colpr2tab) 
+
+# Show which genotypes exist accross populations in the entire dataset.
+crossmlg <- mlg.crosspop(gc.mp, quiet = FALSE)
+#No multilocus genotypes were detected across populations
+
+
+#Country
+#Default MLG 
+#Set again to the original (default) 
+mll(gc.mp) <- "original"
+mll(gc.mp) # original
+gc.mp
+mlg_co <- mlg.table(gc.mp, strata = ~Country)
+
+# See which individuals belong to each MLG
+mlgid <- mlg.id(gc.mp)
+mlgid
+
+ustab <- mlg.table(gc.mp, strata = ~Country, sublist = c("US"), plot=TRUE)
+ncol(ustab) #MLGs in us 54, the columns of the table from mlg.table are equal to the number of MLGs
+coltab <- mlg.table(gc.mp, strata = ~Country, sublist = c("COL"), plot=TRUE)
+ncol(coltab) #MLGs in colombia 20
+prtab <- mlg.table(gc.mp, strata = ~Country, sublist = c("PR"), plot=TRUE)
+ncol(prtab) #MLGs in puerto rico 5
+#3.Apply a treshold for defining MLLs 
+#Filtered (“contracted”)
+#We can utilize genetic distance, which will allow us to collapse multilocus genotypes that are under a specific distance threshold. 
+
+#Calculate raw genetic distance with bitwise.dist(), this distance is in %, see ?bitwise.dist()
+#Fraction of different alleles in percentage (this is actually proportion 0 to 1):
+gc.dist <- bitwise.dist(gc.mp)
+gc.dist
+hist(gc.dist, breaks = 100000)
+median(gc.dist)
+#Number of allelic differences. percent = FALSE will return the distance represented as integers from 1 to n where n is the number of loci
+gc.dist.nl <- bitwise.dist(gc.mp, percent = F)
+gc.dist.nl
+hist(gc.dist.nl, breaks = 10000)
+median(gc.dist.nl)
+max(gc.dist.nl)
+
+
+#Threshold based on distance calculated with bitwise.dist (dissimilarity distance)
+
+#The most familiar name might be the Hamming distance, or the number of differences between two strings.
+#Should the distance be represented from 0 to 1? Default set to TRUE. FALSE will return the distance represented as integers from 1 to n where n is the number of loci. This option has no effect if euclidean = TRUE
+#If the user supplies a genind or genclone object, prevosti.dist() will be used for calculation.
+#So here it is Prevosti's distance
+#Set again to the original (default) 
+mll(gc.mp) <- "original"
+mll(gc.mp) # original
+gc.mp
+
+#Choosing an algorithm and a threshold to represent the minimum genetic distance at which two individuals would be considered from different clonal lineages.
+
+gc.mp.filtered <- filter_stats(gc.mp, distance = bitwise.dist, plot = TRUE)
+gc.mp.filtered
+
+
+# One method described in the literature of choosing a threshold is to look for an initial, small peak in the histogram of pairwise genetic distances and set the threshold to be between that peak and the larger peak `(Arnaud-Haond et al. 2007, @bailleul2016rclone). This initial peak likely represents clones differentiated by a small set of random mutations. 
+# 
+#Closer look, to identify the initial peak that likely represents clones differentiated by a small set of random mutations
+hist(gc.dist, breaks = 10000, xlim= c(0, 0.1)) 
+hist(gc.dist, breaks = 100000, xlim= c(0, 0.01))
+hist(gc.dist, breaks = 1000000, xlim= c(0, 0.004))
+hist(gc.dist, breaks = 1000000, xlim= c(0, 0.001))
+#Looks like the very first peak is below 0.0001
+
+#Threshold based on 0.0001 8 SNPs out of total 77465 (8/77465)
+mlg.filter(gc.mp, distance = gc.dist, algorithm = "a") <- 0.0001 #0.0001032724 8 snps, 0.01% differences, to account for sequencing error
+gc.mp #A threshold of 0.0001 gives 34 contracted multilocus genotypes
+mlgid <- mlg.id(gc.mp)
+
+mll(gc.mp) <- "contracted"
+
+
+```
+
+
+#Same but using snpclone
+
+```{r}
+#2. Explore orginal MLGs
+#Plot thresholds
+#thresh <- filter_stats(gc.mp, distance = bitwise.dist, plot = TRUE)
+
+#p <- last_plot(); p + facet_wrap(~population, ncol = 1, scales = "free_y")
+#p
+#mll() to display and switch between different multilocus genotypes/lineages
+#snpclone
+head(mll(sc.mp, "original"), 20)
+
+     #Naïve (“original”)
+#This is the default way poppr calculates multilocus genotypes
+mll(sc.mp) <- "original"
+sc.mp #79 original multilocus genotypes
+
+head(mll(sc.mp, "original"), 20) # Showing the definitions for the first 20 samples
+mll(sc.mp, "original") # all samples mlgs
+
+#Default MLG: all alleles must match to make a unique multilocus genotype
+#Default MLG 
+mlg_gc <- mlg.table(sc.mp, strata = ~Clade/Genetic_Cluster)
+ggsave("mlg_clade_sc_hier.pdf")
+
+# See which individuals belong to each MLG
+mlgid <- mlg.id(sc.mp)
+mlgid["59"] # "M_15_12_R1"      "W_MISO2_4_10_R1"
+
+# Let's say we want to visualize the multilocus genotype distribution for each cluster
+us1atab <- mlg.table(sc.mp, sublist = c("US1A"), plot=TRUE)
+ncol(us1atab) #MLGs in us1a, the columns of the table from mlg.table are equal to the number of MLGs
+us1btab <- mlg.table(sc.mp, sublist = c("US1B"), plot=TRUE)
+ncol(us1btab) 
+us2tab <- mlg.table(sc.mp, sublist = c("US2"), plot=TRUE)
+ncol(us2tab) 
+colpr1tab <- mlg.table(sc.mp, sublist = c("COLPR1"), plot=TRUE)
+ncol(colpr1tab) 
+colpr2tab <- mlg.table(sc.mp, sublist = c("COLPR2"), plot=TRUE)
+ncol(colpr2tab) 
+
+# Show which genotypes exist accross populations in the entire dataset.
+crossmlg <- mlg.crosspop(sc.mp, quiet = FALSE)
+#No multilocus genotypes were detected across populations
+
+
+#Country
+#Default MLG 
+#Set again to the original (default) 
+mll(sc.mp) <- "original"
+mll(sc.mp) # original
+sc.mp
+mlg_co <- mlg.table(sc.mp, strata = ~Country)
+
+# See which individuals belong to each MLG
+mlgid <- mlg.id(sc.mp)
+mlgid
+
+ustab <- mlg.table(sc.mp, strata = ~Country, sublist = c("US"), plot=TRUE)
+ncol(ustab) #MLGs in us 54, the columns of the table from mlg.table are equal to the number of MLGs
+coltab <- mlg.table(sc.mp, strata = ~Country, sublist = c("COL"), plot=TRUE)
+ncol(coltab) #MLGs in colombia 20
+prtab <- mlg.table(sc.mp, strata = ~Country, sublist = c("PR"), plot=TRUE)
+ncol(prtab) #MLGs in puerto rico 5
+#3.Apply a treshold for defining MLLs 
+#Filtered (“contracted”)
+#We can utilize genetic distance, which will allow us to collapse multilocus genotypes that are under a specific distance threshold. 
+
+#Calculate raw genetic distance with bitwise.dist(), this distance is in %, see ?bitwise.dist()
+#Fraction of different alleles in percentage (this is actually proportion 0 to 1):
+gc.dist <- bitwise.dist(sc.mp)
+gc.dist
+hist(gc.dist, breaks = 100000)
+median(gc.dist)
+#Number of allelic differences. percent = FALSE will return the distance represented as integers from 1 to n where n is the number of loci
+gc.dist.nl <- bitwise.dist(sc.mp, percent = F)
+gc.dist.nl
+hist(gc.dist.nl, breaks = 10000)
+median(gc.dist.nl)
+max(gc.dist.nl)
+
+
+#Threshold based on distance calculated with bitwise.dist (dissimilarity distance)
+
+#The most familiar name might be the Hamming distance, or the number of differences between two strings.
+#Should the distance be represented from 0 to 1? Default set to TRUE. FALSE will return the distance represented as integers from 1 to n where n is the number of loci. This option has no effect if euclidean = TRUE
+#If the user supplies a genind or genclone object, prevosti.dist() will be used for calculation.
+#So here it is Prevosti's distance
+#Set again to the original (default) 
+mll(sc.mp) <- "original"
+mll(sc.mp) # original
+sc.mp
+
+#Choosing an algorithm and a threshold to represent the minimum genetic distance at which two individuals would be considered from different clonal lineages.
+
+sc.mp.filtered <- filter_stats(sc.mp, distance = bitwise.dist, plot = TRUE)
+sc.mp.filtered
+
+
+# One method described in the literature of choosing a threshold is to look for an initial, small peak in the histogram of pairwise genetic distances and set the threshold to be between that peak and the larger peak `(Arnaud-Haond et al. 2007, @bailleul2016rclone). This initial peak likely represents clones differentiated by a small set of random mutations. 
+# 
+#Closer look, to identify the initial peak that likely represents clones differentiated by a small set of random mutations
+hist(gc.dist, breaks = 10000, xlim= c(0, 0.1)) 
+hist(gc.dist, breaks = 100000, xlim= c(0, 0.01))
+hist(gc.dist, breaks = 1000000, xlim= c(0, 0.004))
+hist(gc.dist, breaks = 1000000, xlim= c(0, 0.001))
+#Looks like the very first peak is below 0.0001
+
+#Threshold based on 0.0001 8 SNPs out of total 77465 (8/77465)
+mlg.filter(sc.mp, distance = gc.dist, algorithm = "a") <- 0.0001 #0.0001032724 8 snps, 0.01% differences, to account for sequencing error
+sc.mp #A threshold of 0.0001 gives 34 contracted multilocus genotypes
+mlgid <- mlg.id(sc.mp)
+
+mll(sc.mp) <- "contracted"
+
+
+```
+
+
+## 4.1.2 Defined multilocus lineages for M. phaseolina with the following criteria:
+```{r}
+#[t]	threshold	0.0001
+#[d]	distance	Bitwise distance (Hamming distance, as in bitwise.dist {poppr} function for genclone is Prevosti's)
+#If the user supplies a genind or genclone object, prevosti.dist() will be used for calculation
+#[a]	algorithm	average neighbor
+
+gc.dist <- bitwise.dist(gc.mp)
+mlg.filter(gc.mp, distance = gc.dist, algorithm = "a") <- 0.0001 #0.0001032724 8 snps, 0.01% differences, to account for sequencing error
+gc.mp #A threshold of 0.0001 gives 34 contracted multilocus genotypes
+mlgid <- mlg.id(gc.mp)
+
+mll(gc.mp) <- "contracted"
+mll(gc.mp, "contracted")
+
+# Show which genotypes exist accross populations in the entire dataset.
+crossmlg <- mlg.crosspop(gc.mp, quiet = FALSE)
+#No multilocus genotypes were detected across populations
+```
+
+
+# 4.2 Diversity analysis using multilocus lineages as defined above
+
+```{r}
+###Distribution of MLGs 
+
+#Contracted MLG: as defined above
+#strata: Clade
+mlgc_cl <- mlg.table(gc.mp, strata = ~Clade)
+mlgc_cl
+#strata: Genetic_Cluster
+mlgc_gc <- mlg.table(gc.mp, strata = ~Genetic_Cluster)
+mlgc_gc
+
+#strata: Country
+mlgc_co <- mlg.table(gc.mp, strata = ~Country)
+mlgc_co
+
+#Identify shared MLGs among countries 
+crossmlg <- mlg.crosspop(gc.mp, strata = ~Country, quiet = FALSE)
+#MLG.7: (2 inds) COL PR
+#MLG.17: (2 inds) US PR
+#MLG.59: (20 inds) 19 US 1 COL
+
+#Show isolates in each of the shared MLG
+# See which individuals belong to each MLG
+mlgid <- mlg.id(gc.mp)
+mlgid
+mlgid["7"] # "Mph_5_R1"       "UPR_Mph_JD1_R1"
+mlgid["17"] #"TN501_R1"        "UPR_Mph_ISA3_R1"
+mlgid["59"]#"Mph_49_R1" with 19 US1A isolates
+
+#strata: Country/State_Department
+mlgc_st <- mlg.table(gc.mp, strata = ~State_Department)
+mlgc_st
+
+
+### Basic statistics
+#Genetic diveristy statistics without correcting for uneven sample size
+#strata: Clade
+mp.mlgstat.cl <- diversity_stats(mlgc_cl)
+mp.mlgstat.cl
+#strata: Genetic_Cluster
+mp.mlgstat.gc <- diversity_stats(mlgc_gc)
+mp.mlgstat.gc
+#strata: Country
+mp.mlgstat.co <- diversity_stats(mlgc_co)
+mp.mlgstat.co
+#strata: Country/State_Department
+mp.mlgstat.st <- diversity_stats(mlgc_st)
+mp.mlgstat.st
+
+###Confidence Intervals
+diversity_ci(mlgc_st, n = 100L, raw = FALSE)
+diversity_ci(mlgc_gc, n = 100L, raw = FALSE)
+diversity_ci(mlgc_cl, n = 100L, raw = FALSE)
+
+### Clonal fraction MLG/N
+myCF <- function(x){
+ x <- drop(as.matrix(x))
+ if (length(dim(x)) > 1){ # if it's a matrix
+   res <- rowSums(x > 0)/rowSums(x)
+ } else {                 # if it's a vector
+   res <- sum(x > 0)/sum(x)
+ }
+ return(res)
+}
+
+# The previous version of poppr contained a definition of Hexp, which
+# was calculated as (N/(N - 1))*lambda. It basically looks like an unbiased 
+# Simpson's index. This statistic was originally included in poppr because it
+# was originally included in the program multilocus. It was finally figured
+# to be an unbiased Simpson's diversity metric (Lande, 1996; Good, 1953).
+
+uSimp <- function(x){
+  lambda <- vegan::diversity(x, "simpson")
+  x <- drop(as.matrix(x))
+  if (length(dim(x)) > 1){
+    N <- rowSums(x)
+  } else {
+    N <- sum(x)
+  }
+  return((N/(N-1))*lambda)
+}
+
+#strata: Country/State_Department
+mp.mlgstat2.st <- diversity_stats(mlgc_st, CF = myCF)
+mp.mlgstat2.st
+#strata: Country
+mp.mlgstat2.co <- diversity_stats(mlgc_co, CF = myCF)
+mp.mlgstat2.co
+#strata: Clade
+mp.mlgstat2.cl <- diversity_stats(mlgc_cl, CF = myCF, uSimp = uSimp)
+mp.mlgstat2.cl
+#strata: Genetic Cluster
+mp.mlgstat2.gc <- diversity_stats(mlgc_gc, CF = myCF, uSimp = uSimp)
+mp.mlgstat2.gc
+
+#CLonal Fraction is (1 - (MLG/N), so still need to do 1-CF
+ClonalFraction=(1-mp.mlgstat2.cl[,5])
+ClonalFraction=(1-mp.mlgstat2.gc[,5])
+
+#Above statistics are not comparable because of different sample size, use rarefaction to use min sample size
+### Jack-knife rarefaction
+mpstrarefy <- diversity_ci(mlgc_st, n = 100L, rarefy = TRUE, n.rare=2, raw = FALSE) #Samples for rarefaction: 2
+
+#Country
+mpcorarefy <- diversity_ci(mlgc_co, n = 100L, rarefy = TRUE, n.rare=5, raw = FALSE)#Samples for rarefaction: 5
+
+#Samples for rarefaction: 20
+mpcorarefy <- diversity_ci(mlgc_co, n = 100L, rarefy = TRUE, n.rare=20, raw = FALSE)
+
+#Clade
+mpclrarefy <- diversity_ci(mlgc_cl, n = 10000, rarefy = TRUE, raw = FALSE)#Samples for rarefaction: 25
+mpclrarefy
+
+#Genetic clusters
+#Sample size 10
+mpgcrarefy <- diversity_ci(mlgc_gc, n = 10000, rarefy = TRUE, raw = FALSE)#Samples for rarefaction: 10
+mpgcrarefy
+#Sample size 9
+mpgcrarefy <- diversity_ci(mlgc_gc, n = 10000, rarefy = TRUE, n.rare=9, raw = FALSE)#Samples for rarefaction: 10
+mpgcrarefy
+#Sample size 14
+mpgcrarefy <- diversity_ci(mlgc_gc, n = 10000, rarefy = TRUE, n.rare=14, raw = FALSE)#Samples for rarefaction: 10
+mpgcrarefy
+#Sample size 5
+mpgcrarefy <- diversity_ci(mlgc_gc, n = 10000, rarefy = TRUE, n.rare=5, raw = FALSE)#Samples for rarefaction: 5
+mpgcrarefy 
+
+
+```
+
+
+## Expected MLGs and MLLs using Rarefaction with vegan 
+## By Genetic Cluster
+```{r, fig.align="center", fig.height=12, fig.width=12}
+mlgc_gc <- mlg.table(gc.mp, strata = ~Genetic_Cluster)
+mlgc_gc
+ggsave("mlgc_gc.pdf")
+library(plotly)
+p <- last_plot()
+myTitle <- "Macrophomina phaseolina multilocus genotype distribution"
+pt <- p +
+   #ggtitle(myTitle) +
+   xlab("Multilocus genotype") +
+  theme(axis.text.x = element_blank()) +
+  theme(axis.ticks.x = element_blank()) +
+  theme(panel.grid.major.x = element_blank())
+
+
+library(vegan)
+S <- specnumber(mlgc_gc)  # observed number of MLGs per population
+raremax <- min(rowSums(mlgc_gc)) #min sample size
+Srare <- rarefy(mlgc_gc, raremax) #rarefy with min sample size
+Srare 
+Srare6 <- rarefy(mlgc_gc, 6)
+Srare6 
+#plot(S, Srare, xlab = "Observed No. of MLGs", ylab = "Rarefied No. of MLGs")
+#abline(0, 1)
+#tiff("./raref_curve_gc_mll.tiff", width = 7, height = 7, units = "in", res = 600)
+rarecurve(mlgc_gc, step = 1, sample = raremax, cex = 1, lwd = 3, ylab = "Expected MLLs",  
+          col = "grey70", cex.lab = 1.5 )
+#dev.off()
+rarc <- rarecurve(mlgc_gc, step = 1, sample = 10, cex = 1, lwd = 3, ylab = "Multilocus Genotypes",  
+          col = "grey70", cex.lab = 1.5 )
+rarefy(mlgc_gc, sample=5)
+rarefy(mlgc_gc, sample=14)
+rarefy(mlgc_gc, sample=9)
+rareslope(mlgc_gc, sample=5)
+```
+
+## By Country
+```{r, fig.align="center", fig.height=12, fig.width=12}
+#Set to the original (default) to calcuate expected MLGs (79 unique genotypes)
+mll(gc.mp) <- "original"
+mll(gc.mp) # original
+
+#Set to contracted to calculate eMLLs (39 MLLs based on 0.001 distance threshold) 
+mll(gc.mp) <- "contracted"
+mll(gc.mp) # contracted
+
+mlgc_co <- mlg.table(gc.mp, strata = ~Country)
+mlgc_co
+ggsave("mlgc_gc_co_mll.pdf")
+library(vegan)
+S <- specnumber(mlgc_co)  # observed number of MLGs per population
+raremax <- min(rowSums(mlgc_co)) #min sample size
+Srare <- rarefy(mlgc_co, raremax) #rarefu with min sample size
+
+Srare20 <- rarefy(mlgc_co, 20)
+Srare20 
+
+#plot(S, Srare, xlab = "Observed No. of MLGs", ylab = "Rarefied No. of MLGs")
+#abline(0, 1)
+#tiff("./FIGS/rarefaction_curve.tiff", width = 7, height = 7, units = "in", res = 600)
+rarecurve(mlgc_co, step = 1, sample = raremax, cex = 1, lwd = 3, ylab = "Multilocus Genotypes",  
+          col = "grey70", cex.lab = 1.5 )
+#dev.off()
+```
+
+##By Clade
+```{r, fig.align="center", fig.height=12, fig.width=12}
+mlgc_cl <- mlg.table(gc.mp, strata = ~Clade)
+mlgc_cl
+
+library(vegan)
+S <- specnumber(mlgc_cl)  # observed number of MLGs per population
+raremax <- min(rowSums(mlgc_cl)) #min sample size
+Srare <- rarefy(mlgc_cl, raremax) #rarefy with min sample size
+#plot(S, Srare, xlab = "Observed No. of MLGs", ylab = "Rarefied No. of MLGs")
+#abline(0, 1)
+#tiff("./clade_raref_curve.tiff", width = 7, height = 7, units = "in", res = 600)
+rarecurve(mlgc_cl, step = 1, sample = raremax, cex = 1, lwd = 3, ylab = "Expected Multilocus Genotypes",  
+          col = "grey70", cex.lab = 1.5 )
+
+#dev.off()
+```
+
+#Genclone by cluster to calculate polymorphic loci and allele richness 
+
+```{r}
+
+save(gc.mp,file="./R_ia_ld/gc.mp.Robj")
+
+gc.mp
+setPop(gc.mp) <- ~Genetic_Cluster
+popNames(gc.mp)
+
+
+gc.us1a <- popsub(gc.mp, sublist = "US1A")
+gc.us1b <- popsub(gc.mp, sublist = "US1B")
+gc.us2 <- popsub(gc.mp, sublist = "US2")
+gc.colpr1 <- popsub(gc.mp, sublist = "COLPR1")
+gc.colpr2 <- popsub(gc.mp, sublist = "COLPR2")
+
+save(gc.us1a,file="./R_ia_ld/gc.us1a.Robj")
+save(gc.us1b,file="./R_ia_ld/gc.us1b.Robj")
+save(gc.us2,file="./R_ia_ld/gc.us2.Robj")
+save(gc.colpr1,file="./R_ia_ld/gc.colpr1.Robj")
+save(gc.colpr2,file="./R_ia_ld/gc.colpr2.Robj")
+
+load("./gc.us1a.Robj")
+load("./gc.us1b.Robj")
+load("./gc.us2.Robj")
+load("./gc.colpr1.Robj")
+load("./gc.colpr2.Robj")
+
+
+#Convert to genind to see number of alleles per locus 
+#All
+gi.ccmll <- genclone2genind(gc.mp) #95 individuals; 77,465 loci; 155,395 alleles; size: 103.5 Mb
+gi.ccmll
+#Clusters
+gi.ccmll.us1a <- genclone2genind(gc.us1a) #50 individuals; 77,465 loci; 77,542 alleles; size: 50.3 Mb
+gi.ccmll.us1a #@loc.n.all: number of alleles per locus (range: 1-3)
+poly <- isPoly(gi.ccmll.us1a, by=c("locus","allele"), thres=1/100)
+npoly <- c(table(poly)["TRUE"],table(poly)["FALSE"])  
+npoly #TRUE 76 out of 77,465, FALSE 77389
+
+gi.ccmll.us1b <- genclone2genind(gc.us1b)
+gi.ccmll.us1b #number of alleles per locus (range: 1-3)
+poly <- isPoly(gi.ccmll.us1b, by=c("locus","allele"), thres=1/100)
+npoly <- c(table(poly)["TRUE"],table(poly)["FALSE"])
+npoly #TRUE 10773 FALSE 66692
+
+gi.ccmll.us2 <- genclone2genind(gc.us2)
+gi.ccmll.us2 #number of alleles per locus (range: 1-2)
+poly <- isPoly(gi.ccmll.us2, by=c("locus","allele"), thres=1/100)
+npoly <- c(table(poly)["TRUE"],table(poly)["FALSE"])
+npoly #TRUE 255 FALSE 77210
+
+gi.ccmll.colpr1 <- genclone2genind(gc.colpr1)
+gi.ccmll.colpr1 #number of alleles per locus (range: 1-3)
+poly <- isPoly(gi.ccmll.colpr1, by=c("locus","allele"), thres=1/100)
+npoly <- c(table(poly)["TRUE"],table(poly)["FALSE"])
+npoly #TRUE 19473 FALSE 57992 
+
+gi.ccmll.colpr2 <- genclone2genind(gc.colpr2)
+gi.ccmll.colpr2 #number of alleles per locus (range: 1-3)
+poly <- isPoly(gi.ccmll.colpr2, by=c("locus","allele"), thres=1/100)
+npoly <- c(table(poly)["TRUE"],table(poly)["FALSE"])
+npoly #TRUE 25591 FALSE 51874 
+
+
+#Print the number of alleles per locus
+table(gc.mp$loc.fac) #genclone
+table(gi.ccmll$loc.fac) #genind #same results using genclone or genind
+
+#Print the sample size for each site
+summary(gc.mp$pop)
+summary(gi.ccmll$pop)
+
+#Print the number of private alleles per cluster across all loci
+gc.priv.all <- private_alleles(gc.mp) %>% apply(MARGIN = 1, FUN = sum)
+gc.priv.all
+gi.priv.all <-private_alleles(gi.ccmll) %>% apply(MARGIN = 1, FUN = sum)
+
+#Print mean allelic richness per cluster across all loci
+hfs.mp <- genind2hierfstat(gc.mp)
+library(hierfstat)
+allelic.richness(genind2hierfstat(gc.mp))$Ar %>%
+  apply(MARGIN = 2, FUN = mean) %>% 
+  round(digits = 3)
+#Error in 1:sum(data[, 1] == i) : NA/NaN argument
+
+allelic.richness(genind2hierfstat(gi.ccmll))$Ar %>%
+  apply(MARGIN = 2, FUN = mean) %>% 
+  round(digits = 3)
+```
+
+
+# 5. Index of association using clone corrected snpclone object (sc.mp) 33 MLLs
+
+LD calculations should be done with clone-corrected data as well. 
+IA calculations functions using a genclone object with that many loci don't work, R crashes 
+So, need to use samp.ia() function with a snpclone, corrected in same way as genclone, only difference is that snpclone is created from a genlight which keeps only biallelic loci
+
+## Analysis of clonality via linkage
+The samp.ia() will calculate the index of association (rbarD) over "n.snp" loci "reps" times. Here I used: rbard will be calculated 100 times over 10.000 loci. 
+I calculated IA using clades, because for genetic clusters multiple NaN are produced in US1A, possibly because there only around 70 snps, so no variation is detected and IA (rbard) is not calculable, returns NaN (possibly 0/0). Also, sample size is very different among genetic clusters
+
+```{r}
+# Index of association across M. phaseolina
+
+gl.mp <- vcfR2genlight(vcfmafbial)
+ploidy(gl.mp) <- as.integer(1)
+gl.mp #95 genotypes,  76,981 binary SNPs, size: 8.1 Mb
+setPop(gl.mp) <- ~Clade
+popNames(gl.mp)
+
+# Converting genlight to snpclone: best for many loci and the difference is using only biallellic loci
+#snpclone 
+#This snpclone will have the strata  and population I set to the genlight object
+sc.mp <- as.snpclone(gl.mp) #snpclone
+sc.mp #75 original multilocus genotypes
+sc.mp@pop
+sc.mp
+save(sc.mp,file="./R_ia_ld/sc.mp.Robj")
+
+#Contracted MLL
+sc.dist <- bitwise.dist(sc.mp)
+mlg.filter(sc.mp, distance = sc.dist, algorithm = "a") <- 0.0001 #0.0001032724 8 snps, 0.01% differences, to account for sequencing error
+sc.mp #A threshold of 0.0001 gives 33 contracted multilocus genotypes
+mlgid <- mlg.id(sc.mp)
+
+mll(sc.mp) <- "contracted"
+mll(sc.mp, "contracted")
+
+
+#subsets 33 MLLS
+sc.us33 <- popsub(sc.mp, sublist = "US")
+sc.colpr33 <- popsub(sc.mp, sublist = "COLPR")
+
+save(sc.us,file="./R_ia_ld/sc.us.Robj")
+save(sc.colpr,file="./R_ia_ld/sc.colpr.Robj")
+
+load("./sc.us.Robj")
+load("./sc.colpr.Robj")
+
+
+#IA for clades
+#US
+sc.us33 #71 genotypes,  76,981 binary SNPs, size: 7.9 Mb @mlg: 52 original multilocus genotypes
+us.ia33 <- samp.ia(sc.us33, n.snp = 1000L)
+us.ia33
+hist(us.ia33, breaks = "fd")
+mean(us.ia33)#  0.3609618 mean rbarD
+median(us1a.ia33)#
+
+#COLPR
+sc.colpr33 #24 genotypes,  76,981 binary SNPs, size: 7.4 Mb 23 original multilocus genotypes
+colpr.ia33<- samp.ia(sc.colpr33, n.snp = 1000L)
+colpr.ia33
+hist(colpr.ia33, breaks = "fd")
+mean(colpr.ia33)# 0.1930507  mean rbarD
+median(colpr.ia33)#
+
+
+#Original MLGs
+mll(sc.mp) <- "original"
+mll(sc.mp) # original
+
+#Snpclone object clone-corrected to 75 MLGs
+mp.ia <- samp.ia(sc.mp, n.snp = 10000L)
+mp.ia
+length(mp.ia)
+sc.mp
+summary(sc.mp$pop)
+
+#subsets of snpclone by clade 75 MLGs
+sc.us <- popsub(sc.mp, sublist = "US")
+sc.us #52 original multilocus genotypes
+mlgidus <- mlg.id(sc.us)
+mlgidus
+save(mlgidus,file="./mlgidus.Robj")
+
+sc.colpr <- popsub(sc.mp, sublist = "COLPR")
+sc.colpr #23 original multilocus genotypes
+mlgidcolpr <-  mlg.id(sc.colpr)
+mlgidcolpr
+save(mlgidcolpr,file="./mlgidcolpr.Robj")
+```
+
+#IA clone-corrected 75 MLGs
+Very similar ia results using 75 MLGs or 33 MLLs, so will use 75 orignal MLGs
+```{r}
+# Index of association across M. phaseolina
+#Setting the ploidy
+#IA for clades
+us.ia <- samp.ia(sc.us, n.snp = 1000L)
+us.ia
+hist(us.ia, breaks = "fd")
+mean(us.ia)# 0.3630228
+median(us.ia)#0.363044
+
+colpr.ia <- samp.ia(sc.colpr, n.snp = 1000L)
+colpr.ia
+hist(colpr.ia, breaks = "fd")
+mean(colpr.ia)#0.1952787
+median(colpr.ia)#0.1953618
+
+# Parameters for simulated populations
+
+##Calculate median number of MLLs across pops (genetic clusters) to use in simulated pops 
+median(c(mlg(sc.us),mlg(sc.colpr)), na.rm = T) #38
+
+#% structured snps
+76981*0.25 
+76981*0.75
+76981*0.50
+
+#pop.freq
+52/75 #0.69, 52 MLGs assigned to US out of 75 total 
+23/75 #0.31, 23 MLGs assigned to COLPR out of 75 total 
+
+#alpha, according to allele frequency, also Gst calcualted between US and COLPR clades (0.45) indicates high differentiation
+```
+
+
+# Simulated populations
+```{r}
+### Sexual 0%
+no_linkage <- glSim(38, n.snp.nonstruc=76981, ploidy=1, LD=T, k=2, pop.freq = c(0.69, 0.31), alpha = 0.3)
+### Some_clonal 25%
+linkage_25 <- glSim(38, n.snp.nonstruc=57735, n.snp.struc=19246, ploidy=1, LD=T, k=2, pop.freq = c(0.69, 0.31), alpha = 0.3)
+### Semi_clonal 50%
+linkage_50 <- glSim(38, n.snp.nonstruc=38491, n.snp.struc=38490, ploidy=1, LD=T, k=2, pop.freq = c(0.69, 0.31), alpha = 0.3) 
+### Mostly_clonal 75%
+linkage_75 <- glSim(38, n.snp.nonstruc=19246, n.snp.struc=57735, ploidy=1, LD =T, k=2, pop.freq = c(0.69, 0.31), alpha = 0.3)
+### Clonal 100%
+linkage_100 <- glSim(38, n.snp.nonstruc=0, n.snp.struc=76981, ploidy=1, LD =T, k=2, pop.freq = c(0.69, 0.31), alpha = 0.3)
+
+
+#Sample from simulated population
+
+## IA sex
+ia.nolink <- samp.ia(no_linkage, quiet = T, n.snp = 1000L)
+## IA someclone
+ia.link25 <- samp.ia(linkage_25, quiet = T, n.snp = 1000L)
+## IA.semiclone
+ia.link50 <- samp.ia(linkage_50, quiet = T, n.snp = 1000L)
+## IA.mostclone
+ia.link75 <- samp.ia(linkage_75, quiet = T, n.snp = 1000L)
+## IA.clone
+ia.link100 <- samp.ia(linkage_100, quiet = T, n.snp = 1000L)
+
+
+# Summarizing data frames
+d1 <- data.frame(ia.nolink, rep("nolinkage", length(ia.nolink)))
+d2 <- data.frame(ia.link25, rep("25_linkage", length(ia.link25)))
+d3 <- data.frame(ia.link50, rep("50_linkage", length(ia.link50)))
+d4 <- data.frame(ia.link75, rep("75_linkage", length(ia.link75)))
+d5 <- data.frame(ia.link100, rep("100_linkage", length(ia.link100)))
+d6 <- data.frame(us.ia, rep("us", length(us.ia)))
+d7 <- data.frame(colpr.ia, rep("colpr", length(colpr.ia)))
+
+colnames(d1) <- c("ia","dset")
+colnames(d2) <- c("ia","dset")
+colnames(d3) <- c("ia","dset")
+colnames(d4) <- c("ia","dset")
+colnames(d5) <- c("ia","dset")
+colnames(d6) <- c("ia","dset")
+colnames(d7) <- c("ia","dset")
+ia.total <- rbind(d1, d2, d3, d4, d5, d6, d7)
+#save(ia.total,file="./R_ia_ld/ia.total.Robj")
+
+
+# Normality tests
+frames <- list(as.data.frame(d1), as.data.frame(d2), as.data.frame(d3), as.data.frame(d4), as.data.frame(d5), as.data.frame(d6), as.data.frame(d7))
+normality <- list()
+for (i in 1:length(frames)){
+ normality[[i]] <- shapiro.test(frames[[i]][,'ia'])
+}
+normality
+
+# Analysis of variance
+anova.ia <- aov(lm(ia ~ dset, ia.total))
+summary(anova.ia)
+library(agricolae)
+tukey <- HSD.test(anova.ia, "dset", alpha = 0.001)
+tukey
+
+# Kluskal wallis test
+#kruskal.test(ia ~ dset, ia.total, trt="dset")
+k.test <- with(ia.total, kruskal(ia, dset, group = T, p.adj = "bon"))
+k.test
+# Plot
+library(forcats)
+ia.total$dset <- as.factor(ia.total$dset)
+levels(ia.total$dset)
+
+# Modify the labels
+ia.total$dset <- factor(ia.total$dset, levels = c("100_linkage", "25_linkage",  "50_linkage",  "75_linkage",  "colpr", "nolinkage", "us"), 
+                labels = c("100%", "25%", "50%", "75%", "COLPR", "0%","US"))
+load("./R_ia_ld/ia.total.Robj")
+# prepare a special xlab with the "linkage" in other line
+my_xlab <- c(paste(levels(ia.total$dset)[7],sep=""),
+             paste(levels(ia.total$dset)[5],sep=""),
+             paste(levels(ia.total$dset)[6],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[2],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[3],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[4],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[1],"\nlinkage",sep=""))
+
+# Prepare a vector of colors with specific color for each genetic cluster
+#ordered colors
+subclade.col5 <- c("#1F78B4CC","#569EA4", "#6A3D9ACC", "#F06C45CC", "#FDA440CC")
+#show_col(subclade.col5)
+#show_col(subclade.col5)
+myColors <- c(subclade.col5[c(1,4)], "grey90","grey90","grey90","grey90","grey90")
+
+library(ggsci) # paletas de colores de revistas cientificas 
+library(ggpubr) # ayuda a realizar plots listos para publicacion
+library(dplyr)
+#Primero vamos a crear una lista de las comparaciones que queremos realizar, por ejemplo entre paises. Aqui especificamos pares de comparaciones
+my_comp <- list(c("US", "COLPR"), c("US", "100%"), c("US", "75%"),c("US", "50%"), c("US", "25%"),c("US", "0%"),c("COLPR", "100%"), c("COLPR", "75%"),c("COLPR", "50%"), c("COLPR", "25%"),c("COLPR", "0%"))
+
+#This is just to add significance letters to boxplot
+#Create this values just to use for the position of the label
+ia.total.summ = ia.total %>% group_by(dset) %>% summarize(ia=max(ia))
+ia.total.summ
+#Take letters from tukey and order as in the data for positions (ia.total.summ)
+tukeydf <- tukey$groups
+tukeydf$dataset <- rownames(tukeydf)
+tukeydf
+#ord <- c("100_linkage", "25_linkage", "50_linkage", "75_linkage", "colpr", "nolinkage", "us")
+ord <- c("100%", "25%", "50%", "75%", "COLPR", "0%", "US")
+tukey.ord <- tukeydf %>%
+  mutate(dataset = factor(dataset, levels= ord))%>%
+  arrange(dataset)
+            
+
+#Boxplot 
+mp.ia.boxplot <- ia.total %>%
+  mutate(dset = fct_relevel(dset, 
+            "US", "COLPR",
+            "0%", "25%", "50%", 
+            "75%", "100%")) %>%
+ggplot(aes(dset,ia,fill=dset)) + geom_boxplot() + xlab("Dataset") + ylab("Standardized index of association")+
+scale_x_discrete(labels=my_xlab)+
+scale_fill_manual(values=myColors) +
+theme(panel.background = element_rect(fill = "white", colour = "black"))+
+theme(axis.text.x = element_text(size = 9))+
+#stat_compare_means(comparisons = my_comp, label.y = c(0.52,0.50,0.46,0.44,0.42,0.40,0.48,0.28,0.26,0.24,0.22), symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")), tip.length=.02, hide.ns = F)+ ## Add significance levels
+stat_compare_means(method = "anova", label.y =0.47, label.x = 1.1)+ # # Add global the p-value 
+geom_text(data=ia.total.summ,aes(x=dset,y=0.02+ia,label=tukey.ord$groups),vjust=0)  
+#geom_jitter(shape=16, position=position_jitter(0.2)) +
+#geom_dotplot(binaxis='y', stackdir='center', binwidth = 1/400, alpha = 0.5)
+
+mp.ia.boxplot
+#save(mp.ia.boxplot,file="./figures_ia/mp.ia.boxplot.Robj")
+
+#ggsave(plot = mp.ia.boxplot, "./figures_ia/0222_CC75MLLs_iaboxplot_alpha0.3.png", dpi = 600, units = "in", height = 6, width = 7)
+#ggsave(plot = mp.ia.boxplot, "./figures_ia/0222_CC75MLLs_iaboxplot_alpha0.3_small.png", dpi = 300, units = "in", height = 4, width = 5)
+ggsave(plot = mp.ia.boxplot, "./figures_ia/0222_CC75MLLs_iaboxplot_alpha0.3_sm_blank.png", dpi = 300, units = "in", height = 4, width = 5)
+```
+
+
+#IA not clone-corrected 
+Just for comparison IA using orginal genlight, not clone-corrected
+```{r}
+vcfmafbial <- "./051920_vcfs/051920_mp39_95_SNP_DPquant595_DP4_0miss_MQ60_MAF002_biallelic.vcf.gz"
+vcfmafbial <- read.vcfR(vcfmafbial,
+                 convertNA = TRUE, verbose = TRUE)
+
+
+# Read in the VCF files by clades
+us.vcf.76k <- "./051920_vcfs/051920_vcfclades_76k/051920_US_76kSNP_mp39_maf_bial.vcf.gz"
+colpr.vcf.76k <- "./051920_vcfs/051920_vcfclades_76k/051920_COLPR_76kSNP_mp39_maf_bial.vcf.gz"
+
+us.vcf.76k <- read.vcfR(us.vcf.76k, convertNA = TRUE, verbose = TRUE)
+colpr.vcf.76k <- read.vcfR(colpr.vcf.76k, convertNA = TRUE, verbose = TRUE)
+
+```
+
+
+#Creating a genlight object using the filtered vcf
+```{r}
+gl.mp <- vcfR2genlight(vcfmafbial)
+ploidy(gl.mp) <- as.integer(1)
+gl.mp #95 genotypes,  76,981 binary SNPs, size: 8.1 Mb
+setPop(gl.mp) <- ~Clade
+popNames(gl.mp)
+
+#US vcf 
+usgl.mp76k <- vcfR2genlight(us.vcf.76k)
+ploidy(usgl.mp76k) <- as.integer(1)
+usgl.mp76k
+
+#COLPR vcf 
+colprgl.mp76k <- vcfR2genlight(colpr.vcf.76k)
+ploidy(colprgl.mp76k) <- as.integer(1)
+colprgl.mp76k
+
+#Setting the strata to the same as for genlight object 
+strata(usgl.mp76k) <- strata(gl.mp)
+strata(colprgl.mp76k) <- strata(gl.mp)
+
+```
+
+
+```{r}
+# Index of association across M. phaseolina
+#Setting the ploidy
+#IA for clades
+us.ia <- samp.ia(usgl.mp76k, n.snp = 10000L)
+us.ia
+hist(us.ia, breaks = "fd")
+mean(us.ia)#
+median(us.ia)#0.4325251
+
+colpr.ia <- samp.ia(colprgl.mp76k, n.snp = 10000L)
+colpr.ia
+hist(colpr.ia, breaks = "fd")
+mean(colpr.ia)#
+median(colpr.ia)#0.1570418
+
+# Simulated populations
+
+##Calculate median number of MLLs across pops (genetic clusters) to use in simulated pops 
+median(summary(gl.mp$pop), na.rm = T)
+76981*0.25 
+76981*0.75
+76981*0.50
+
+
+### Sexual 0%
+no_linkage <- glSim(48, n.snp.nonstruc=76981, ploidy=1, LD=T, k=2, pop.freq = c(0.75, 0.25), alpha = 0.3)
+### Some_clonal 25%
+linkage_25 <- glSim(48, n.snp.nonstruc=57735, n.snp.struc=19246, ploidy=1, LD=T, k=2, pop.freq = c(0.75, 0.25), alpha = 0.3)
+### Semi_clonal 50%
+linkage_50 <- glSim(48, n.snp.nonstruc=38491, n.snp.struc=38490, ploidy=1, LD=T, k=2, pop.freq = c(0.75, 0.25), alpha = 0.3)
+### Mostly_clonal 75%
+linkage_75 <- glSim(48, n.snp.nonstruc=19246, n.snp.struc=57735, ploidy=1, LD =T, k=2, pop.freq = c(0.75, 0.25), alpha = 0.3)
+### Clonal 100%
+linkage_100 <- glSim(48, n.snp.nonstruc=0, n.snp.struc=76981, ploidy=1, LD =T, k=2,pop.freq = c(0.75, 0.25), alpha = 0.3)
+
+
+#Sample from simulated population
+
+## IA sex
+ia.nolink <- samp.ia(no_linkage, quiet = T, n.snp = 10000L)
+## IA someclone
+ia.link25 <- samp.ia(linkage_25, quiet = T, n.snp = 10000L)
+## IA.semiclone
+ia.link50 <- samp.ia(linkage_50, quiet = T, n.snp = 10000L)
+## IA.mostclone
+ia.link75 <- samp.ia(linkage_75, quiet = T, n.snp = 10000L)
+## IA.clone
+ia.link100 <- samp.ia(linkage_100, quiet = T, n.snp = 10000L)
+
+
+# Summarizing data frames
+d1 <- data.frame(ia.nolink, rep("nolinkage", length(ia.nolink)))
+d2 <- data.frame(ia.link25, rep("25_linkage", length(ia.link25)))
+d3 <- data.frame(ia.link50, rep("50_linkage", length(ia.link50)))
+d4 <- data.frame(ia.link75, rep("75_linkage", length(ia.link75)))
+d5 <- data.frame(ia.link100, rep("100_linkage", length(ia.link100)))
+d6 <- data.frame(us.ia, rep("us", length(us.ia)))
+d7 <- data.frame(colpr.ia, rep("colpr", length(colpr.ia)))
+
+colnames(d1) <- c("ia","dset")
+colnames(d2) <- c("ia","dset")
+colnames(d3) <- c("ia","dset")
+colnames(d4) <- c("ia","dset")
+colnames(d5) <- c("ia","dset")
+colnames(d6) <- c("ia","dset")
+colnames(d7) <- c("ia","dset")
+ia.total <- rbind(d1, d2, d3, d4, d5, d6, d7)
+
+# Normality tests
+frames <- list(as.data.frame(d1), as.data.frame(d2), as.data.frame(d3), as.data.frame(d4), as.data.frame(d5), as.data.frame(d6), as.data.frame(d7))
+normality <- list()
+for (i in 1:length(frames)){
+ normality[[i]] <- shapiro.test(frames[[i]][,'ia'])
+}
+normality
+
+# Analysis of variance
+anova.ia <- aov(lm(ia ~ dset, ia.total))
+summary(anova.ia)
+library(agricolae)
+tukey <- HSD.test(anova.ia, "dset", alpha = 0.001)
+tukey
+# Kluskal wallis test
+#kruskal.test(ia ~ dset, ia.total, trt="dset")
+k.test <- with(ia.total, kruskal(ia, dset, group = T, p.adj = "bon"))
+k.test
+# Plot
+library(forcats)
+ia.total$dset <- as.factor(ia.total$dset)
+levels(ia.total$dset)
+
+# Modify the labels
+ia.total$dset <- factor(ia.total$dset, levels = c("100_linkage", "25_linkage",  "50_linkage",  "75_linkage",  "colpr", "nolinkage", "us"), 
+                labels = c("100%", "25%", "50%", "75%", "COLPR", "0%","US"))
+
+# prepare a special xlab with the "linkage" in other line
+my_xlab <- c(paste(levels(ia.total$dset)[7],sep=""),
+             paste(levels(ia.total$dset)[5],sep=""),
+             paste(levels(ia.total$dset)[6],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[2],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[3],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[4],"\nlinkage",sep=""),
+             paste(levels(ia.total$dset)[1],"\nlinkage",sep=""))
+
+# Prepare a vector of colors with specific color for each genetic cluster
+#ordered colors
+subclade.col5 <- c("#1F78B4CC","#569EA4", "#6A3D9ACC", "#F06C45CC", "#FDA440CC")
+#show_col(subclade.col5)
+myColors <- c(subclade.col5[c(1,4)], "grey90","grey90","grey90","grey90","grey90")
+
+
+mp.ia.boxplot <- ia.total %>%
+  mutate(dset = fct_relevel(dset, 
+            "US", "COLPR",
+            "0%", "25%", "50%", 
+            "75%", "100%")) %>%
+ggplot(aes(dset,ia,fill=dset)) + geom_boxplot() + xlab("Dataset") + ylab("Standardized Index of association")+
+scale_x_discrete(labels=my_xlab)+
+scale_fill_manual(values=myColors) +
+theme_bw()+
+theme(axis.text.x = element_text(size = 9))
+        
+mp.ia.boxplot
+ggsave(plot = mp.ia.boxplot, "./figures_ia/0222_NOTCC_iaboxplot_alpha0.3.png", dpi = 600, units = "in", height = 6, width = 7)
+```
+
+```{r}
+#IA by windows
+colpr.win.ia <- win.ia(sc.colpr, window = 300L) # Calculate for windows of size 300
+plot(colpr.win.ia, type = "l")
+
+library("dplyr")
+library("tidyr")
+
+colprwin_tidy <- colpr.win.ia %>%
+  tibble(rd = ., chromosome = names(.)) %>% # create two column data frame
+  separate(chromosome, into = c("chromosome", "position")) %>% # get the position info
+  mutate(position = as.integer(position)) %>% # force position as integers
+  mutate(chromosome = factor(chromosome, unique(chromosome))) # force order chromosomes
+#> Warning: `data_frame()` is deprecated, use `tibble()`.
+#> This warning is displayed once per session.
+colprwin_tidy
+
+# Plotting with ggplot2
+library("ggplot2")
+ggplot(colprwin_tidy, aes(x = position, y = rd, color = chromosome)) +
+  geom_line() +
+  facet_wrap(~chromosome, nrow = 1) +
+  ylab(expression(bar(r)[d])) +
+  xlab("terminal position of sliding window") +
+  labs(caption = "window size: 100bp") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  theme(legend.position = "top")
+
+```
