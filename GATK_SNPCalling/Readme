@@ -1,1 +1,36 @@
-Scripts used to conduct SNP calling using GATK pipeline and Macrophomina phaseolina Macpha1 (MPI-SDFR-AT-0080 v1.0) reference genome 
+Scripts used to conduct SNP calling using GATK pipeline and Macrophomina phaseolina Macpha1 (MPI-SDFR-AT-0080 v1.0) reference genome:
+
+1. Cutadapt: runPipeline_cut.sh, need a file with file names: mp_readnames.txt
+	Fastqc: mp_fastqc_cleaned.sh
+	Multiqc: In: /mnt/home/ortizviv/08312017_mp_whgenome/workdata_08312017/clean_reads/fastqc_cleaned_cutadapt
+	module load singularity
+	module load multiQC/1.0
+	multiqc .
+2. Index genome: bwa_index_masked_genome #index genome for using in bwa_mem #ok 
+   Index genome bowtie: index_mp39genome_bowtie.sh # Have not done mapping with bowtie, did not finish script 
+3. Map reads to genome: bwa_mem_mp39R.sh #ok 
+4. Mapping statistics: flagstat_mp39R.sh #ok 
+5. Sort mapping files (.bam): sort_masked_mp39R.sh # ok
+6. Mark Duplicates: markduplicates_mp39R.sh #Requires a lot of memory and not sure if is necessary. Have ~13% duplicates #ok
+-ValidateSamFiles: ValidateSamFile_mp39R.sh #to check if bam files are complete and free of errors#ok, checked and no error found in any (see standard out with more to see all)
+-Mapping statistics on deduplicated bam files: flagstat_dedup_mp39R.sh #statistics deduplicated bam files # ok
+7. Index bam files: index_dedup_mp39R.sh # to get .bai files # ok # Missing W12_6_R1_dedup.bam #ok solved error above
+8. Index genome for gatk: index_genome_fai_mp39R.sh # To index the genome to get a .fai indexed genome to use in gatk # ok 
+9. Call variants on individual files using HaplotypeCaller and -ERC GVCF: (use one of them, compare results)
+	gatk_haplotypecaller_dedup_indiv.sh #using version 3.7 just try first gatk 4 
+	gatk4_haplotypecaller_dedup_indiv #using version 4.0, it does not need to be installed by hpcc just download in a folder and call the jar as it is in the script # ok
+	### job 77: M14_31_R1 exceeded its walltime limit Job was aborted and job 74: CR_Red_3_R1 Job does not exist on node
+	#need to repeat those
+10. Combine gvcfs: 
+	gatk4_combinegvcfs_mp39r_exM1431.sh #combine gvcfs excluding M1431 #ok 9/12/18
+	gatk4_combinegvcfs_mp39r.sh #combine gvcfs all 96 #ok
+11. Genotype gvcfs to perform joint genotyping: This tool is able to handle any ploidy (or mix of ploidies) intelligently; there is no need to specify ploidy for non-diploid organisms. Already specified in HaplotypeCaller
+	gatk4_genotypegvcfs_mp39r.sh #R 092118
+	gatk4_genotypegvcfs_mp39R_excM1431.sh #R 092118
+
+###Filtering vcf 
+gatk hard filters. Look first with R gvcfR to decide what filters to apply 
+12. Filtering with VariantFiltration
+gatk4_variantfiltration_haplo.sh
+13. Select variants with PASS filters
+gatk4_selectvariants_haplo.sh
